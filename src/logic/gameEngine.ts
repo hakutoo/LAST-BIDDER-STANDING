@@ -86,6 +86,8 @@ export class GameEngine {
   // ゲーム開始（ロール選択へ）
   public startRoleSelect(): void {
     if (this.state.phase !== 'LOBBY') return;
+    const alivePlayers = Object.values(this.state.players).filter(p => p.isAlive);
+    if (alivePlayers.length < 2) return; // 2人未満では開始しない
     this.state.phase = 'ROLE_SELECT';
     this.addLog('ゲームが開始されました。ロールを選択してください。', 'system');
     this.notify();
@@ -100,8 +102,10 @@ export class GameEngine {
     applyRoleToPlayer(player, roleId);
     this.addLog(`${player.name} がロールを選択しました。`, 'info');
 
-    // 全員がロールを選択したか確認
-    const allSelected = Object.values(this.state.players).every(p => p.roleId !== null);
+    // 生存している全プレイヤーがロールを選択済みかどうか確認
+    // （2人未満の場合は安全のため開始しない）
+    const alivePlayers = Object.values(this.state.players).filter(p => p.isAlive);
+    const allSelected = alivePlayers.length >= 2 && alivePlayers.every(p => p.roleId !== null);
     if (allSelected) {
       this.startFirstTurn();
     } else {

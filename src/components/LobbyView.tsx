@@ -254,9 +254,19 @@ export const LobbyView: React.FC<Props> = ({
                 )}
                 <button
                   onClick={onStartGame}
-                  style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                  disabled={Object.keys(players).length < 2}
+                  title={Object.keys(players).length < 2 ? '2人以上揃ったらゲームを開始できます' : undefined}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    backgroundColor: Object.keys(players).length < 2 ? '#1e3a5f' : '#2563eb',
+                    color: Object.keys(players).length < 2 ? '#64748b' : '#fff',
+                    fontWeight: 'bold',
+                    border: 'none',
+                    cursor: Object.keys(players).length < 2 ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  ゲームを開始する 🚀
+                  {Object.keys(players).length < 2 ? '対戦相手を待っています...' : 'ゲームを開始する 🚀'}
                 </button>
               </>
             )}
