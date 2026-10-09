@@ -18,6 +18,7 @@ interface Props {
   onBackToTitle?: () => void;
   onAddTestPlayer?: () => void;
   onForceEndGame?: () => void;
+  onRename?: (name: string) => void;
 }
 
 export const LobbyView: React.FC<Props> = ({
@@ -35,10 +36,13 @@ export const LobbyView: React.FC<Props> = ({
   onBackToTitle,
   onAddTestPlayer,
   onForceEndGame,
+  onRename,
 }) => {
-  const [inputName, setInputName] = useState<string>('プレイヤー1');
+  const [inputName, setInputName] = useState<string>('');
   const [inputRoomCode, setInputRoomCode] = useState<string>('');
   const [copyNotice, setCopyNotice] = useState<string>('');
+  const [lobbyName, setLobbyName] = useState<string>('');
+  const [renameNotice, setRenameNotice] = useState<string>('');
 
   // URLパラメータ（?room=XXXX）があれば自動セット
   React.useEffect(() => {
@@ -270,8 +274,49 @@ export const LobbyView: React.FC<Props> = ({
           </div>
         </div>
 
+        {/* 名前変更フォーム（ロビー待機中は全員使用可） */}
+        {myId && onRename && (
+          <div style={{ marginTop: '20px', backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
+            <label style={{ display: 'block', fontSize: '0.9em', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>
+              ✏️ プレイヤー名を変更:
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={lobbyName}
+                onChange={(e) => setLobbyName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && lobbyName.trim()) {
+                    onRename(lobbyName.trim());
+                    setRenameNotice('名前を変更しました！');
+                    setTimeout(() => setRenameNotice(''), 2500);
+                  }
+                }}
+                placeholder={players[myId]?.name || '新しい名前を入力'}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', fontSize: '0.95em' }}
+              />
+              <button
+                onClick={() => {
+                  if (!lobbyName.trim()) return;
+                  onRename(lobbyName.trim());
+                  setRenameNotice('名前を変更しました！');
+                  setTimeout(() => setRenameNotice(''), 2500);
+                }}
+                style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#7c3aed', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9em', whiteSpace: 'nowrap' }}
+              >
+                変更する
+              </button>
+            </div>
+            {renameNotice && (
+              <div style={{ marginTop: '6px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>
+                ✓ {renameNotice}
+              </div>
+            )}
+          </div>
+        )}
+
         {!isHost && (
-          <div style={{ marginTop: '20px', color: '#94a3b8', textAlign: 'center' }}>
+          <div style={{ marginTop: '16px', color: '#94a3b8', textAlign: 'center' }}>
             ホストがゲームを開始するのをお待ちください...
           </div>
         )}

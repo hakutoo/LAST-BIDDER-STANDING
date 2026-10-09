@@ -3,6 +3,7 @@ import type { DraftBid, GameLogEntry, GamePhase, PlayerAction, PublicPlayerInfo,
 // クライアント -> ホスト
 export type ClientMessage = 
   | { type: 'JOIN_REQUEST'; playerName: string }
+  | { type: 'SET_NAME'; playerName: string }
   | { type: 'SELECT_ROLE'; roleId: string }
   | { type: 'START_GAME' }
   | { type: 'SUBMIT_DRAFT_BID'; bid: DraftBid }

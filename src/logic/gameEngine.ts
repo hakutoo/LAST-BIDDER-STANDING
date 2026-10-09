@@ -15,7 +15,8 @@ export class GameEngine {
 
   constructor(roomCode: string, hostId: string, hostName: string, onUpdate: (s: GameState) => void) {
     this.onStateUpdated = onUpdate;
-    const hostPlayer = createInitialPlayerState(hostId, hostName, true);
+    const resolvedHostName = hostName.trim() || 'プレイヤー1';
+    const hostPlayer = createInitialPlayerState(hostId, resolvedHostName, true);
 
     this.state = {
       roomCode,
@@ -30,7 +31,7 @@ export class GameEngine {
       logs: [{
         id: `init_log`,
         turn: 0,
-        text: `ルームが作成されました。(ホスト: ${hostName})`,
+        text: `ルームが作成されました。(ホスト: ${resolvedHostName})`,
         type: 'system',
       }],
       winnerId: null,
@@ -48,9 +49,26 @@ export class GameEngine {
     if (this.state.phase !== 'LOBBY') return;
     if (this.state.players[id]) return;
 
-    this.state.players[id] = createInitialPlayerState(id, name, false);
+    // 名前が空の場合は「プレイヤーN」（N=参加順）を自動付与
+    const playerCount = Object.keys(this.state.players).length + 1;
+    const resolvedName = name.trim() || `プレイヤー${playerCount}`;
+
+    this.state.players[id] = createInitialPlayerState(id, resolvedName, false);
     this.state.playerOrder.push(id);
-    this.addLog(`${name} が入室しました。`, 'system');
+    this.addLog(`${resolvedName} が入室しました。`, 'system');
+    this.notify();
+  }
+
+  // プレイヤー名変更（ロビー中のみ可）
+  public renamePlayer(id: string, name: string): void {
+    if (this.state.phase !== 'LOBBY') return;
+    const player = this.state.players[id];
+    if (!player) return;
+    const newName = name.trim();
+    if (!newName || newName === player.name) return;
+    const oldName = player.name;
+    player.name = newName;
+    this.addLog(`${oldName} が名前を「${newName}」に変更しました。`, 'system');
     this.notify();
   }
 

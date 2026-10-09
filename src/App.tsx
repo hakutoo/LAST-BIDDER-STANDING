@@ -125,6 +125,9 @@ export const App: React.FC = () => {
       case 'JOIN_REQUEST':
         engine.addPlayer(clientId, msg.playerName);
         break;
+      case 'SET_NAME':
+        engine.renamePlayer(clientId, msg.playerName);
+        break;
       case 'SELECT_ROLE':
         engine.selectRole(clientId, msg.roleId);
         break;
@@ -277,6 +280,16 @@ const toPeerRoomId = (code: string): string => {
   // 確実に有効なプレイヤーIDを取得
   const effectiveMyId = myId || syncData?.myId || myIdRef.current || '';
 
+  // 名前変更（ロビー中のみ）
+  const handleRename = (newName: string) => {
+    if (!newName.trim()) return;
+    if (isHost && engineRef.current) {
+      engineRef.current.renamePlayer(effectiveMyId, newName.trim());
+    } else {
+      network.sendToHost({ type: 'SET_NAME', playerName: newName.trim() });
+    }
+  };
+
   // ロール選択
   const handleSelectRole = (roleId: string) => {
     setSelectedRoleId(roleId);
@@ -360,6 +373,7 @@ const toPeerRoomId = (code: string): string => {
           onBackToTitle={handleBackToTitle}
           onAddTestPlayer={handleAddTestPlayer}
           onForceEndGame={handleForceEndGame}
+          onRename={handleRename}
         />
       ) : (
         /* メインゲーム画面 */
