@@ -140,6 +140,8 @@ export interface GameState {
   hostId: string;
   players: { [id: string]: PlayerState };
   playerOrder: string[];
+  // ROLE_SELECT開始時点で確定したプレイヤーIDリスト（全員選択済み判定用）
+  roleSelectPlayerIds: string[];
   draftPool: DraftCard[];
   draftBids: { [playerId: string]: DraftBid };
   playerActions: { [playerId: string]: PlayerAction };

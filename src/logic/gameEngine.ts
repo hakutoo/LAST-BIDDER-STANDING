@@ -25,6 +25,7 @@ export class GameEngine {
       hostId,
       players: { [hostId]: hostPlayer },
       playerOrder: [hostId],
+      roleSelectPlayerIds: [],
       draftPool: [],
       draftBids: {},
       playerActions: {},
@@ -89,6 +90,9 @@ export class GameEngine {
     const alivePlayers = Object.values(this.state.players).filter(p => p.isAlive);
     if (alivePlayers.length < 2) return; // 2人未満では開始しない
     this.state.phase = 'ROLE_SELECT';
+    // この時点のプレイヤーIDをスナップショットとして確定する
+    // （全員選択済み判定をこのリストに基づいて行う）
+    this.state.roleSelectPlayerIds = alivePlayers.map(p => p.id);
     this.addLog('ゲームが開始されました。ロールを選択してください。', 'system');
     this.notify();
   }
@@ -99,13 +103,25 @@ export class GameEngine {
     const player = this.state.players[playerId];
     if (!player) return;
 
+    // 既にロールが設定済みの場合は再処理しない（二重送信・競合防止）
+    if (player.roleId !== null) {
+      this.notify();
+      return;
+    }
+
     applyRoleToPlayer(player, roleId);
     this.addLog(`${player.name} がロールを選択しました。`, 'info');
 
-    // 生存している全プレイヤーがロールを選択済みかどうか確認
-    // （2人未満の場合は安全のため開始しない）
-    const alivePlayers = Object.values(this.state.players).filter(p => p.isAlive);
-    const allSelected = alivePlayers.length >= 2 && alivePlayers.every(p => p.roleId !== null);
+    // ROLE_SELECT開始時に確定したプレイヤー数を基準に全員選択済みか確認
+    // （動的に変わる players ではなく roleSelectPlayerIds を使う）
+    const expectedIds = this.state.roleSelectPlayerIds;
+    const allSelected =
+      expectedIds.length >= 2 &&
+      expectedIds.every(id => {
+        const p = this.state.players[id];
+        return p && p.roleId !== null;
+      });
+
     if (allSelected) {
       this.startFirstTurn();
     } else {
