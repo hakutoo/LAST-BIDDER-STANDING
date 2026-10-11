@@ -461,4 +461,141 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
   assert(desc10.includes('ATKの120％(=24)'), `getCardDescriptionの期待値「ATKの120％(=24)」、実際: ${desc10}`);
 }
 
+console.log('\n=== 9. バグ修正検証テスト ===');
+
+// テスト9-1: シールドクラッシュ (SLD全消費 + ATK100%攻撃)
+{
+  const aegis = createInitialPlayerState('p1', 'Aegis', false);
+  aegis.atk = 15;
+  aegis.sld = 20;
+  aegis.hand = [{ instanceId: 'sc1', cardId: 'unique_aegis_b' }]; // シールドクラッシュ
+
+  const target = createInitialPlayerState('p2', 'Target', false);
+  target.def = 5;
+  target.hp = 50;
+  target.sld = 0;
+
+  // 期待値: ATK 15 + SLD 20 = 攻撃値35。DEF 5で軽減されて 30 ダメージ。SLDは0になる。
+  const res = resolveTurn(
+    { p1: aegis, p2: target },
+    { p1: { playerId: 'p1', cardInstanceId: 'sc1', targetPlayerId: 'p2' } },
+    1
+  );
+
+  const updatedAegis = res.updatedPlayers['p1'];
+  const updatedTarget = res.updatedPlayers['p2'];
+
+  assert(updatedAegis.sld === 0, `シールドクラッシュ後に自身のSLDが0になる、実際: ${updatedAegis.sld}`);
+  assert(updatedTarget.hp === 20, `ターゲットが30ダメージ受けHPが20になる(50 - 30 = 20)、実際: ${updatedTarget.hp}`);
+}
+
+// テスト9-2: 腐食の毒薬をアンチ・マギで反射した際、攻撃者に毒が付与され、防御側には付与されないこと
+{
+  const mage = createInitialPlayerState('p1', 'Mage', false);
+  mage.mat = 20;
+  mage.hand = [{ instanceId: 'poison_card', cardId: 'corrosive_poison' }]; // 腐食の毒薬 (MAT 50% 魔法攻撃 + 毒3T)
+
+  const inq = createInitialPlayerState('p2', 'Inquisitor', false);
+  inq.mdf = 5;
+  inq.hand = [{ instanceId: 'anti_magi_card', cardId: 'unique_inquisitor_b' }]; // アンチ・マギ (魔法無効化 & 50%反射)
+
+  const res = resolveTurn(
+    { p1: mage, p2: inq },
+    {
+      p1: { playerId: 'p1', cardInstanceId: 'poison_card', targetPlayerId: 'p2' },
+      p2: { playerId: 'p2', cardInstanceId: 'anti_magi_card', targetPlayerId: 'p2' },
+    },
+    1
+  );
+
+  const updatedMage = res.updatedPlayers['p1'];
+  const updatedInq = res.updatedPlayers['p2'];
+
+  // 反射されたので、Mageに毒が付与され、Inquisitorには毒が付与されない
+  assert(updatedMage.statuses.some(s => s.type === 'poison'), '攻撃者(Mage)に毒が反射付与された');
+  assert(!updatedInq.statuses.some(s => s.type === 'poison'), '防御側(Inquisitor)には毒が付与されていない');
+}
+
+// テスト9-3: バフ終了後の減少処理が翌ターン以降に継続しないこと (アイアンウォール DEF+5 終了後)
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.def = 10;
+  p1.hand = [{ instanceId: 'iw', cardId: 'iron_wall' }]; // DEF+5 (このターン中)
+
+  // ターン1: アイアンウォール使用
+  const res1 = resolveTurn(
+    { p1 },
+    { p1: { playerId: 'p1', cardInstanceId: 'iw', targetPlayerId: 'p1' } },
+    1
+  );
+  assert(res1.updatedPlayers['p1'].def === 10, `ターン1終了時にDEFが10に戻る、実際: ${res1.updatedPlayers['p1'].def}`);
+  assert(res1.updatedPlayers['p1'].buffs.length === 0, 'バフ配列からアイアンウォールのバフが正常に消去されている');
+
+  // ターン2: 何もしない
+  const res2 = resolveTurn(
+    res1.updatedPlayers,
+    { p1: { playerId: 'p1', cardInstanceId: null, targetPlayerId: null } },
+    2
+  );
+  assert(res2.updatedPlayers['p1'].def === 10, `ターン2終了時にもDEFは10のまま(減少処理が継続しない)、実際: ${res2.updatedPlayers['p1'].def}`);
+}
+
+// テスト9-4: 状態異常の持続ターンが解除なしターンでも1ずつ減少すること
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.hp = 100;
+  p1.statuses = [{ type: 'poison', remainingTurns: 3 }];
+
+  // ターン1: 何もしない（解除は発生しない）
+  const res1 = resolveTurn(
+    { p1 },
+    { p1: { playerId: 'p1', cardInstanceId: null, targetPlayerId: null } },
+    1
+  );
+  const st1 = res1.updatedPlayers['p1'].statuses.find(s => s.type === 'poison');
+  assert(st1?.remainingTurns === 2, `毒の残りターンが3から2に減少する、実際: ${st1?.remainingTurns}`);
+
+  // ターン2: 何もしない
+  const res2 = resolveTurn(
+    res1.updatedPlayers,
+    { p1: { playerId: 'p1', cardInstanceId: null, targetPlayerId: null } },
+    2
+  );
+  const st2 = res2.updatedPlayers['p1'].statuses.find(s => s.type === 'poison');
+  assert(st2?.remainingTurns === 1, `毒の残りターンが2から1に減少する、実際: ${st2?.remainingTurns}`);
+
+  // ターン3: 毒が解除される
+  const res3 = resolveTurn(
+    res2.updatedPlayers,
+    { p1: { playerId: 'p1', cardInstanceId: null, targetPlayerId: null } },
+    3
+  );
+  assert(res3.updatedPlayers['p1'].statuses.length === 0, 'ターン3終了時に毒が正常に解除される');
+}
+
+// テスト9-5: 10G入札が2G入札に勝つこと (文字列型混入ケース)
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.g = 20;
+  const p2 = createInitialPlayerState('p2', 'P2', false);
+  p2.g = 20;
+
+  const draftPool = [{ instanceId: 'card_x', cardId: 'heavy_blade' }];
+
+  // p1が10G (文字列混入想定), p2が2G
+  const bids = {
+    p1: { playerId: 'p1', bids: { card_x: '10' as any } },
+    p2: { playerId: 'p2', bids: { card_x: '2' as any } },
+  };
+
+  const res = resolveDraftBids(draftPool, bids, { p1, p2 }, 1);
+  const updatedP1 = res.updatedPlayers['p1'];
+  const updatedP2 = res.updatedPlayers['p2'];
+
+  assert(updatedP1.hand.some(c => c.cardId === 'heavy_blade'), '10G入札のP1が落札して手札に加わる');
+  assert(!updatedP2.hand.some(c => c.cardId === 'heavy_blade'), '2G入札のP2は落札できない');
+  assert(updatedP1.g === 10, `P1のGが10消費されて残10G、実際: ${updatedP1.g}`);
+  assert(updatedP2.g === 20, `P2のGは消費されず20Gのまま、実際: ${updatedP2.g}`);
+}
+
 console.log('\n全テストが正常に通過しました！');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { DraftCard, DraftBid, PublicPlayerInfo } from '../types/game';
 import { CARD_DEFINITIONS, formatCardDescription } from '../data/cards';
 import { ROLE_DEFINITIONS } from '../data/roles';
@@ -14,6 +14,17 @@ interface Props {
   player?: PublicPlayerInfo | null;
   players?: { [id: string]: PublicPlayerInfo };
 }
+
+const normalizeBids = (raw: { [instanceId: string]: number }) => {
+  const clean: { [instanceId: string]: number } = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const num = Math.max(0, Number(v) || 0);
+    if (num > 0) {
+      clean[k] = num;
+    }
+  }
+  return clean;
+};
 
 export const DraftView: React.FC<Props> = ({
   draftPool,
@@ -31,37 +42,9 @@ export const DraftView: React.FC<Props> = ({
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(60);
 
-  const bidsRef = useRef(bids);
-  bidsRef.current = bids;
-  const uniquePurchasesRef = useRef(uniquePurchases);
-  uniquePurchasesRef.current = uniquePurchases;
-  const isSubmittedRef = useRef(isSubmitted);
-  isSubmittedRef.current = isSubmitted;
-  const isFirstMount = useRef(true);
-
-  // カウントダウンタイマー
-  useEffect(() => {
-    const updateTimer = () => {
-      if (!phaseDeadline) return;
-      const remaining = Math.max(0, Math.ceil((phaseDeadline - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining <= 0 && !isSubmittedRef.current) {
-        // タイムアウト時は現在の入札・購入で自動提出
-        handleSubmit();
-      }
-    };
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [phaseDeadline]);
-
-  // 入札・購入内容が変更されたら、未確定入札（下書き）としてホストに自動同期
-  useEffect(() => {
+  const handleSubmit = useCallback(() => {
     if (isSubmitted) return;
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      return;
-    }
+    setIsSubmitted(true);
 
     const flattenedPurchases: string[] = [];
     for (const [cardId, count] of Object.entries(uniquePurchases)) {
@@ -72,7 +55,53 @@ export const DraftView: React.FC<Props> = ({
 
     onSubmitBid({
       playerId: myId,
-      bids,
+      bids: normalizeBids(bids),
+      uniquePurchases: flattenedPurchases,
+      isConfirmed: true,
+    });
+  }, [isSubmitted, uniquePurchases, onSubmitBid, myId, bids]);
+
+  const handleDoNothing = () => {
+    if (isSubmitted) return;
+    setIsSubmitted(true);
+
+    onSubmitBid({
+      playerId: myId,
+      bids: {},
+      uniquePurchases: [],
+      isConfirmed: true,
+    });
+  };
+
+  // カウントダウンタイマー
+  useEffect(() => {
+    if (!phaseDeadline) return;
+    const updateTimer = () => {
+      const remaining = Math.max(0, Math.ceil((phaseDeadline - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0 && !isSubmitted) {
+        handleSubmit();
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [phaseDeadline, isSubmitted, handleSubmit]);
+
+  // 入札・購入内容が変更されたら、未確定入札（下書き）としてホストに自動同期
+  useEffect(() => {
+    if (isSubmitted) return;
+
+    const flattenedPurchases: string[] = [];
+    for (const [cardId, count] of Object.entries(uniquePurchases)) {
+      for (let i = 0; i < count; i++) {
+        flattenedPurchases.push(cardId);
+      }
+    }
+
+    onSubmitBid({
+      playerId: myId,
+      bids: normalizeBids(bids),
       uniquePurchases: flattenedPurchases,
       isConfirmed: false,
     });
@@ -91,15 +120,14 @@ export const DraftView: React.FC<Props> = ({
 
   const handleBidChange = (instanceId: string, valueStr: string) => {
     if (isSubmitted) return;
-    const value = parseInt(valueStr, 10) || 0;
-    const currentOtherBids = totalBid - (bids[instanceId] || 0);
+    const value = Math.max(0, parseInt(valueStr, 10) || 0);
+    const currentOtherBids = totalBid - (Number(bids[instanceId]) || 0);
     const maxPossible = Math.max(0, myG - totalShopCost - currentOtherBids);
 
-    if (value < 0) return;
     if (value > maxPossible) {
-      setBids(prev => ({ ...prev, [instanceId]: maxPossible }));
+      setBids(prev => ({ ...prev, [instanceId]: Number(maxPossible) }));
     } else {
-      setBids(prev => ({ ...prev, [instanceId]: value }));
+      setBids(prev => ({ ...prev, [instanceId]: Number(value) }));
     }
   };
 
@@ -122,39 +150,6 @@ export const DraftView: React.FC<Props> = ({
         next[cardId] = newCount;
       }
       return next;
-    });
-  };
-
-  const handleDoNothing = () => {
-    if (isSubmittedRef.current) return;
-    setIsSubmitted(true);
-    isSubmittedRef.current = true;
-
-    onSubmitBid({
-      playerId: myId,
-      bids: {},
-      uniquePurchases: [],
-      isConfirmed: true,
-    });
-  };
-
-  const handleSubmit = () => {
-    if (isSubmittedRef.current) return;
-    setIsSubmitted(true);
-    isSubmittedRef.current = true;
-
-    const flattenedPurchases: string[] = [];
-    for (const [cardId, count] of Object.entries(uniquePurchasesRef.current)) {
-      for (let i = 0; i < count; i++) {
-        flattenedPurchases.push(cardId);
-      }
-    }
-
-    onSubmitBid({
-      playerId: myId,
-      bids: bidsRef.current,
-      uniquePurchases: flattenedPurchases,
-      isConfirmed: true,
     });
   };
 
