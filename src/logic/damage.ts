@@ -79,7 +79,7 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
   }
 
   // 攻撃基本値の計算
-  let baseStat = 0;
+  let baseStat;
   if (damageType === 'PHYSICAL') {
     baseStat = attacker.atk;
   } else {
@@ -119,7 +119,7 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
 
   // 3. 攻撃値を決定する。
   // 4. DEFまたはMDFによる軽減を行う。
-  let damageAfterDefense = 0;
+  let damageAfterDefense;
   if (damageType === 'PHYSICAL') {
     damageAfterDefense = Math.max(0, attackValue - target.def);
   } else {

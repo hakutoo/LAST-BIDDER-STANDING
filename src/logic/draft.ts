@@ -99,12 +99,13 @@ export function resolveDraftBids(
       if (!player || !player.isAlive) continue;
 
       const playerBidObj = bids[playerId];
-      const bidAmount = playerBidObj?.bids?.[draftCard.instanceId] || 0;
+      const rawBid = playerBidObj?.bids?.[draftCard.instanceId];
+      const bidAmount = Math.max(0, Number(rawBid) || 0);
       if (bidAmount > 0) {
         let effectiveBid = bidAmount;
         // ジャガーノートのパッシブ「大富豪の療養」: 回復カード入札時、自身の入札Gを1.25倍として扱う
         if (player.roleId === 'juggernaut' && (cardDef.category === 'HEAL' || cardDef.id === 'draft_heal_powder')) {
-          effectiveBid = bidAmount * GAME_CONFIG.JUGGERNAUT_BID_MULTIPLIER;
+          effectiveBid = Math.floor(bidAmount * GAME_CONFIG.JUGGERNAUT_BID_MULTIPLIER);
         }
         cardBids.push({ playerId, originalBid: bidAmount, effectiveBid });
       }
@@ -120,16 +121,17 @@ export function resolveDraftBids(
       continue;
     }
 
-    // 最高実効入札額を特定
+    // 最高実効入札額を特定 (数値比較を厳格に保証)
     let maxEffectiveBid = 0;
     for (const b of cardBids) {
-      if (b.effectiveBid > maxEffectiveBid) {
-        maxEffectiveBid = b.effectiveBid;
+      const eff = Number(b.effectiveBid);
+      if (eff > maxEffectiveBid) {
+        maxEffectiveBid = eff;
       }
     }
 
     // 最高額をつけたプレイヤーたち（同額入札の可能性あり）
-    const highestBidders = cardBids.filter(b => b.effectiveBid === maxEffectiveBid);
+    const highestBidders = cardBids.filter(b => Number(b.effectiveBid) === maxEffectiveBid);
 
     // 同額入札の場合はランダムに1人決定
     const winnerEntry = highestBidders[Math.floor(Math.random() * highestBidders.length)];
@@ -138,10 +140,13 @@ export function resolveDraftBids(
     // 落札者のGを消費
     winner.g = Math.max(0, winner.g - winnerEntry.originalBid);
 
+    const jgBonusText = (winner.roleId === 'juggernaut' && winnerEntry.effectiveBid > winnerEntry.originalBid)
+      ? ` (ジャガーノート実効: ${winnerEntry.effectiveBid}G)`
+      : '';
     logs.push({
       id: `draft_log_${Math.random()}`,
       turn,
-      text: `【ドラフト】${winner.name} が「${cardDef.name}」を ${winnerEntry.originalBid}G で落札しました。`,
+      text: `【ドラフト】${winner.name} が「${cardDef.name}」を ${winnerEntry.originalBid}G${jgBonusText} で落札しました。`,
       type: 'draft',
     });
 
@@ -149,7 +154,7 @@ export function resolveDraftBids(
     if (cardDef.statusBonus) {
       // ステータスカード: 即時ステータス反映（手札には入らない）
       const stat = cardDef.statusBonus.stat;
-      let changeText = '';
+      let changeText;
       if (stat === 'HP') {
         const prevMaxHp = winner.maxHp;
         const prevHp = winner.hp;

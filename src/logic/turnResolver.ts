@@ -237,25 +237,38 @@ export function buildTurnResolutionSteps(
 
     // カード効果の処理
     let selfDamage = 0;
+    let lastAttackResult: {
+      isEvaded: boolean;
+      isParried: boolean;
+      isReflected: boolean;
+      isCritical: boolean;
+    } | null = null;
 
     for (const effect of cardDef.effects) {
-      if (effect.type === 'PHYSICAL_ATTACK' || effect.type === 'MAGIC_ATTACK') {
+      if (
+        effect.type === 'PHYSICAL_ATTACK' ||
+        effect.type === 'MAGIC_ATTACK' ||
+        effect.type === 'CONSUME_SLD_ATTACK'
+      ) {
         if (!target) continue;
 
-        const isPhysical = effect.type === 'PHYSICAL_ATTACK';
-        const hits = isPhysical ? (effect.hits || 1) : 1;
+        const isPhysical = effect.type === 'PHYSICAL_ATTACK' || effect.type === 'CONSUME_SLD_ATTACK';
+        const hits = isPhysical && effect.type === 'PHYSICAL_ATTACK' ? (effect.hits || 1) : 1;
 
         for (let h = 0; h < hits; h++) {
           if (!target.isAlive || !actor.isAlive) break;
 
           let consumeSldValue = 0;
-          if (effect.type === 'PHYSICAL_ATTACK' && effect.consumeSldRate) {
+          if (effect.type === 'CONSUME_SLD_ATTACK') {
             consumeSldValue = actor.sld;
             actor.sld = 0; // シールドクラッシュでSLD全消費
+          } else if (effect.type === 'PHYSICAL_ATTACK' && effect.consumeSldRate) {
+            consumeSldValue = actor.sld;
+            actor.sld = 0; // シールドクラッシュ用でSLD全消費
           }
 
           // リベンジの場合、ATKではなくDEFの120%
-          let overrideMultiplier = effect.multiplier;
+          const overrideMultiplier = effect.multiplier;
           let baseStatOverrideAtk: number | undefined = undefined;
           if (cardDef.id === 'unique_sentinel_b') {
             baseStatOverrideAtk = actor.def;
@@ -271,6 +284,13 @@ export function buildTurnResolutionSteps(
             tempCltBonus: 0,
             sldBonusMultiplier: effect.type === 'MAGIC_ATTACK' ? effect.sldBonusMultiplier : undefined,
           });
+
+          lastAttackResult = {
+            isEvaded: dmgRes.isEvaded,
+            isParried: dmgRes.isParried,
+            isReflected: dmgRes.reflectedDamage > 0,
+            isCritical: dmgRes.isCritical,
+          };
 
           // メイジのスペルチャージ消費
           if (dmgRes.spellChargeUsed) {
@@ -724,6 +744,50 @@ export function buildTurnResolutionSteps(
           );
         }
       } else if (effect.type === 'APPLY_STATUS') {
+        if (lastAttackResult) {
+          if (lastAttackResult.isEvaded) {
+            // 回避成功時は状態異常も回避
+            continue;
+          }
+          if (lastAttackResult.isReflected) {
+            // 反射成功時は毒や重傷も攻撃者自身に反射付与
+            if (actor && actor.isAlive) {
+              const statusName = effect.status === 'poison' ? '毒' : '重傷';
+              const reflectStatusMsg = `【反射】${actor.name} は攻撃を反射され、自身に【${statusName}】が付与された！`;
+              pushStep(
+                steps,
+                updatedPlayers,
+                {
+                  id: `turn_log_${Math.random()}`,
+                  turn,
+                  text: reflectStatusMsg,
+                  type: 'status',
+                },
+                {
+                  id: `event_${Math.random()}`,
+                  type: 'STATUS_APPLIED',
+                  actorId: target?.id,
+                  actorName: target?.name,
+                  targetId: actor.id,
+                  targetName: actor.name,
+                  title: '状態異常反射！',
+                  description: reflectStatusMsg,
+                }
+              );
+              applyStatusEffect(actor, effect.status, effect.duration, steps, updatedPlayers, turn, true);
+            }
+            continue;
+          }
+          if (lastAttackResult.isParried) {
+            // パリィ無効化（反射なし）時は状態異常も無効化
+            continue;
+          }
+          if (effect.onlyOnCritical && !lastAttackResult.isCritical) {
+            // クリティカル限定効果（ヴェノム・エッジ等）でクリティカル不発生時は付与しない
+            continue;
+          }
+        }
+
         if (target && target.isAlive) {
           applyStatusEffect(target, effect.status, effect.duration, steps, updatedPlayers, turn);
         }
@@ -917,6 +981,9 @@ export function buildTurnResolutionSteps(
       if (b.duration === -1) continue; // 永続（スペルチャージ等）
 
       if (b.duration === 0) {
+        // 先にバフをリストから取り除く（スナップショットにバフが残るのを防止）
+        player.buffs.splice(i, 1);
+
         // 今ターン終了で解除
         if (b.type === 'STAT_BUFF' && b.stat && b.amount) {
           const isEvasion = b.stat === 'evasion';
@@ -946,7 +1013,6 @@ export function buildTurnResolutionSteps(
             }
           );
         }
-        player.buffs.splice(i, 1);
       } else {
         b.duration -= 1;
       }
@@ -1001,8 +1067,9 @@ export function buildTurnResolutionSteps(
     );
   }
 
-  // 最後のステップの winnerId を確実に同期
+  // 最後のステップの updatedPlayers を最新の確定状態（デクリメント完了後）に確実に同期
   if (steps.length > 0) {
+    steps[steps.length - 1].updatedPlayers = JSON.parse(JSON.stringify(updatedPlayers));
     steps[steps.length - 1].winnerId = finalWinnerId;
   }
 
@@ -1135,51 +1202,56 @@ function applyStatusEffect(
   duration: number,
   steps: TurnResolutionStep[],
   players: { [id: string]: PlayerState },
-  turn: number
+  turn: number,
+  skipStep: boolean = false
 ) {
   const existing = target.statuses.find(s => s.type === statusType);
   if (existing) {
     existing.remainingTurns = duration;
-    const resetMsg = `${target.name} の【${statusType === 'poison' ? '毒' : '重傷'}】の持続ターンが ${duration} ターンにリセットされた。`;
-    pushStep(
-      steps,
-      players,
-      {
-        id: `turn_log_${Math.random()}`,
-        turn,
-        text: resetMsg,
-        type: 'status',
-      },
-      {
-        id: `event_${Math.random()}`,
-        type: 'STATUS_APPLIED',
-        targetId: target.id,
-        targetName: target.name,
-        title: '状態異常延長',
-        description: resetMsg,
-      }
-    );
+    if (!skipStep) {
+      const resetMsg = `${target.name} の【${statusType === 'poison' ? '毒' : '重傷'}】の持続ターンが ${duration} ターンにリセットされた。`;
+      pushStep(
+        steps,
+        players,
+        {
+          id: `turn_log_${Math.random()}`,
+          turn,
+          text: resetMsg,
+          type: 'status',
+        },
+        {
+          id: `event_${Math.random()}`,
+          type: 'STATUS_APPLIED',
+          targetId: target.id,
+          targetName: target.name,
+          title: '状態異常延長',
+          description: resetMsg,
+        }
+      );
+    }
   } else {
     target.statuses.push({ type: statusType, remainingTurns: duration });
-    const applyMsg = `${target.name} に【${statusType === 'poison' ? '毒' : '重傷'}】が付与された！`;
-    pushStep(
-      steps,
-      players,
-      {
-        id: `turn_log_${Math.random()}`,
-        turn,
-        text: applyMsg,
-        type: 'status',
-      },
-      {
-        id: `event_${Math.random()}`,
-        type: 'STATUS_APPLIED',
-        targetId: target.id,
-        targetName: target.name,
-        title: '状態異常付与',
-        description: applyMsg,
-      }
-    );
+    if (!skipStep) {
+      const applyMsg = `${target.name} に【${statusType === 'poison' ? '毒' : '重傷'}】が付与された！`;
+      pushStep(
+        steps,
+        players,
+        {
+          id: `turn_log_${Math.random()}`,
+          turn,
+          text: applyMsg,
+          type: 'status',
+        },
+        {
+          id: `event_${Math.random()}`,
+          type: 'STATUS_APPLIED',
+          targetId: target.id,
+          targetName: target.name,
+          title: '状態異常付与',
+          description: applyMsg,
+        }
+      );
+    }
   }
 }
 
@@ -1198,10 +1270,10 @@ function applyStatBuff(player: PlayerState, stat: any, amount: number) {
 // ステータス増減解除
 function revertStatBuff(player: PlayerState, stat: any, amount: number) {
   switch (stat) {
-    case 'ATK': player.atk -= amount; break;
-    case 'DEF': player.def -= amount; break;
-    case 'MAT': player.mat -= amount; break;
-    case 'MDF': player.mdf -= amount; break;
+    case 'ATK': player.atk = Math.max(0, player.atk - amount); break;
+    case 'DEF': player.def = Math.max(0, player.def - amount); break;
+    case 'MAT': player.mat = Math.max(0, player.mat - amount); break;
+    case 'MDF': player.mdf = Math.max(0, player.mdf - amount); break;
     case 'SPD': player.spd = Math.max(0, player.spd - amount); break;
     case 'CLT': player.clt = Math.max(0, player.clt - amount); break;
     case 'evasion': player.evasion = Math.max(0, player.evasion - amount); break;
