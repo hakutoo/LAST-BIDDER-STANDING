@@ -443,7 +443,7 @@ const toPeerRoomId = (code: string): string => {
           {currentPhase === 'GAME_OVER' && (
             <div style={{ backgroundColor: '#1e293b', padding: '32px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '2px solid #eab308' }}>
               <h2 style={{ fontSize: '2em', margin: '0 0 12px 0', color: '#facc15' }}>
-                🎉 ゲーム終了！
+                ゲーム終了！
               </h2>
               <div style={{ fontSize: '1.4em', marginBottom: '16px' }}>
                 {syncData.winnerId === 'DRAW' ? (
