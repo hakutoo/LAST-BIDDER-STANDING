@@ -108,9 +108,9 @@ export const LobbyView: React.FC<Props> = ({
   if (!roomCode) {
     return (
       <div style={{ maxWidth: '520px', margin: '40px auto', backgroundColor: '#1e293b', padding: '24px', borderRadius: '8px', border: '1px solid #334155' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '12px' }}>⚔️ ターン制カードバトル</h2>
+        <h2 style={{ textAlign: 'center', marginBottom: '12px' }}>LAST BIDDER STANDING</h2>
         <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.88em', marginTop: 0, marginBottom: '20px' }}>
-          ブラウザ同士で直接通信するオンラインPvPカードゲーム
+          賭けろ。戦え。生き残れ。<br />
         </p>
 
         {(() => {
