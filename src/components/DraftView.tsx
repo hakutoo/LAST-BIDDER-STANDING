@@ -26,6 +26,15 @@ const normalizeBids = (raw: { [instanceId: string]: number }) => {
   return clean;
 };
 
+const CATEGORY_NAMES: { [key: string]: string } = {
+  ACTIVE: 'アクティブ',
+  COUNTER: 'カウンター',
+  HEAL: '回復',
+  NORMAL: '通常',
+  UNIQUE_A: 'ユニークA',
+  UNIQUE_B: 'ユニークB',
+};
+
 export const DraftView: React.FC<Props> = ({
   draftPool,
   myG,
@@ -338,7 +347,7 @@ export const DraftView: React.FC<Props> = ({
                             backgroundColor: isStatus ? '#0284c7' : isHeal ? '#16a34a' : '#7c3aed',
                           }}
                         >
-                          {isStatus ? '即時ステータス' : def.category}
+                          {isStatus ? '即時ステータス' : (CATEGORY_NAMES[def.category] || def.category)}
                         </span>
                       </div>
                       <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>

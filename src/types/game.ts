@@ -68,7 +68,9 @@ export interface PublicPlayerInfo {
 export type GamePhase = 
   | 'LOBBY' 
   | 'ROLE_SELECT' 
+  | 'GOLD_DISTRIBUTION'
   | 'DRAFT' 
+  | 'RESOLVING_DRAFT'
   | 'ACTION' 
   | 'RESOLVING' 
   | 'ROUND_RESULT' 
@@ -97,6 +99,46 @@ export interface GameLogEntry {
   turn: number;
   text: string;
   type: 'info' | 'damage' | 'heal' | 'status' | 'death' | 'draft' | 'system';
+  visibleToPlayerId?: string;
+}
+
+export interface GoldDistributionEvent {
+  playerId: string;
+  playerName: string;
+  roleId: string | null;
+  total: number;
+  base: number;
+  damageBonus: number;
+  interest: number;
+  catchup: number;
+  prevG: number;
+  newG: number;
+}
+
+export interface DraftPlayerBidInfo {
+  playerId: string;
+  playerName: string;
+  roleId: string | null;
+  bidAmount: number;
+  effectiveBid: number;
+  isWinner: boolean;
+}
+
+export interface DraftResolutionEvent {
+  step: 'BIDS_REVEAL' | 'WINNER_ANNOUNCE'; // 二段階表示
+  cardIndex: number;
+  totalCards: number;
+  cardInstanceId: string;
+  cardId: string;
+  cardName: string;
+  bids: DraftPlayerBidInfo[];
+  winnerId: string | null; // null = 入札者なし（流札）
+  winnerName?: string;
+  winningBid?: number;
+  effectiveWinningBid?: number;
+  isJuggernautBonus?: boolean;
+  message: string;
+  statChangeText?: string; // ステータスカードの場合の表示テキスト
 }
 
 export type ResolutionEventType =
@@ -148,5 +190,7 @@ export interface GameState {
   logs: GameLogEntry[];
   winnerId: string | null | 'DRAW' | 'FORCE_QUIT'; // null = 未決着, 'DRAW' = 引き分け, 'FORCE_QUIT' = 強制終了
   phaseDeadline: number | null; // UNIX timestamp ms
+  activeGoldEvent: GoldDistributionEvent | null;
+  activeDraftEvent: DraftResolutionEvent | null;
   activeResolutionEvent: BattleEvent | null;
 }

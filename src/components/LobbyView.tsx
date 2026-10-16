@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { PublicPlayerInfo, GamePhase } from '../types/game';
 import { ROLE_DEFINITIONS } from '../data/roles';
 import { CARD_DEFINITIONS, formatCardDescription } from '../data/cards';
+import { validatePlayerName, getNameCharLimitInfo } from '../utils/nameValidator';
 
 interface Props {
   phase: GamePhase;
@@ -112,59 +113,98 @@ export const LobbyView: React.FC<Props> = ({
           ブラウザ同士で直接通信するオンラインPvPカードゲーム
         </p>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '0.9em', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>
-            あなたのプレイヤー名:
-          </label>
-          <input
-            type="text"
-            value={inputName}
-            onChange={(e) => setInputName(e.target.value)}
-            placeholder="名前を入力"
-            style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#0f172a', color: '#fff', fontSize: '1em' }}
-          />
-        </div>
+        {(() => {
+          const inputNameInfo = getNameCharLimitInfo(inputName);
+          return (
+            <>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.9em', color: '#cbd5e1', fontWeight: 'bold' }}>
+                    あなたのプレイヤー名:
+                  </label>
+                  <span style={{ fontSize: '0.8em', color: inputNameInfo.isOver ? '#ef4444' : '#94a3b8' }}>
+                    {inputName.length > 0 ? (
+                      <>
+                        {inputNameInfo.count} / {inputNameInfo.max}字
+                        {inputNameInfo.isOver && <b style={{ marginLeft: '4px' }}>(文字数オーバー)</b>}
+                      </>
+                    ) : (
+                      '半角24字 / 全角・混合12字以内'
+                    )}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  value={inputName}
+                  onChange={(e) => setInputName(e.target.value)}
+                  placeholder="名前を入力 (半角24字/全角12字以内)"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    boxSizing: 'border-box',
+                    borderRadius: '6px',
+                    border: inputNameInfo.isOver ? '1px solid #ef4444' : '1px solid #475569',
+                    backgroundColor: '#0f172a',
+                    color: '#fff',
+                    fontSize: '1em',
+                  }}
+                />
+                {inputNameInfo.isOver && (
+                  <div style={{ color: '#ef4444', fontSize: '0.8em', marginTop: '4px' }}>
+                    ⚠️ {inputNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
+                  </div>
+                )}
+              </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <button
-            onClick={() => {
-              if (!inputName.trim()) return alert('名前を入力してください');
-              onCreateRoom(inputName.trim());
-            }}
-            style={{ padding: '12px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '1em' }}
-          >
-            🏠 新しい部屋を作成（ホストになる）
-          </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <button
+                  onClick={() => {
+                    const validation = validatePlayerName(inputName);
+                    if (!validation.valid) {
+                      return alert(validation.reason || '名前を入力してください');
+                    }
+                    onCreateRoom(inputName.trim());
+                  }}
+                  style={{ padding: '12px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '1em' }}
+                >
+                  🏠 新しい部屋を作成（ホストになる）
+                </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.85em' }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
-            <span>または友達の部屋に参加</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
-          </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.85em' }}>
+                  <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
+                  <span>または友達の部屋に参加</span>
+                  <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
+                </div>
 
-          <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <label style={{ display: 'block', fontSize: '0.85em', color: '#94a3b8', marginBottom: '6px' }}>
-              招待されたルームID（4桁の数字など）:
-            </label>
-            <input
-              type="text"
-              placeholder="例: 4821"
-              value={inputRoomCode}
-              onChange={(e) => setInputRoomCode(e.target.value)}
-              style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', marginBottom: '10px', fontSize: '1em' }}
-            />
-            <button
-              onClick={() => {
-                if (!inputName.trim()) return alert('名前を入力してください');
-                if (!inputRoomCode.trim()) return alert('ルームIDを入力してください');
-                onJoinRoom(inputRoomCode.trim(), inputName.trim());
-              }}
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95em' }}
-            >
-              🚪 部屋に参加する
-            </button>
-          </div>
-        </div>
+                <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
+                  <label style={{ display: 'block', fontSize: '0.85em', color: '#94a3b8', marginBottom: '6px' }}>
+                    招待されたルームID（4桁の数字など）:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="例: 4821"
+                    value={inputRoomCode}
+                    onChange={(e) => setInputRoomCode(e.target.value)}
+                    style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', marginBottom: '10px', fontSize: '1em' }}
+                  />
+                  <button
+                    onClick={() => {
+                      const validation = validatePlayerName(inputName);
+                      if (!validation.valid) {
+                        return alert(validation.reason || '名前を入力してください');
+                      }
+                      if (!inputRoomCode.trim()) return alert('ルームIDを入力してください');
+                      onJoinRoom(inputRoomCode.trim(), inputName.trim());
+                    }}
+                    style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95em' }}
+                  >
+                    🚪 部屋に参加する
+                  </button>
+                </div>
+              </div>
+            </>
+          );
+        })()}
 
         {/* 初心者向け手順ガイド */}
         <div style={{ marginTop: '20px', padding: '12px 14px', backgroundColor: '#0f172a', borderRadius: '6px', border: '1px solid #1e3a8a', fontSize: '0.82em', color: '#94a3b8', lineHeight: '1.6' }}>
@@ -285,45 +325,86 @@ export const LobbyView: React.FC<Props> = ({
         </div>
 
         {/* 名前変更フォーム（ロビー待機中は全員使用可） */}
-        {myId && onRename && (
-          <div style={{ marginTop: '20px', backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <label style={{ display: 'block', fontSize: '0.9em', color: '#cbd5e1', marginBottom: '6px', fontWeight: 'bold' }}>
-              ✏️ プレイヤー名を変更:
-            </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={lobbyName}
-                onChange={(e) => setLobbyName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && lobbyName.trim()) {
-                    onRename(lobbyName.trim());
-                    setRenameNotice('名前を変更しました！');
-                    setTimeout(() => setRenameNotice(''), 2500);
-                  }
-                }}
-                placeholder={players[myId]?.name || '新しい名前を入力'}
-                style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', fontSize: '0.95em' }}
-              />
-              <button
-                onClick={() => {
-                  if (!lobbyName.trim()) return;
-                  onRename(lobbyName.trim());
-                  setRenameNotice('名前を変更しました！');
-                  setTimeout(() => setRenameNotice(''), 2500);
-                }}
-                style={{ padding: '8px 16px', borderRadius: '6px', backgroundColor: '#7c3aed', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.9em', whiteSpace: 'nowrap' }}
-              >
-                変更する
-              </button>
-            </div>
-            {renameNotice && (
-              <div style={{ marginTop: '6px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>
-                ✓ {renameNotice}
+        {myId && onRename && (() => {
+          const lobbyNameInfo = getNameCharLimitInfo(lobbyName);
+          const handleApplyRename = () => {
+            const validation = validatePlayerName(lobbyName);
+            if (!validation.valid) {
+              return alert(validation.reason || '名前を入力してください');
+            }
+            onRename(lobbyName.trim());
+            setRenameNotice('名前を変更しました！');
+            setTimeout(() => setRenameNotice(''), 2500);
+          };
+
+          return (
+            <div style={{ marginTop: '20px', backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '0.9em', color: '#cbd5e1', fontWeight: 'bold' }}>
+                  ✏️ プレイヤー名を変更:
+                </label>
+                <span style={{ fontSize: '0.8em', color: lobbyNameInfo.isOver ? '#ef4444' : '#94a3b8' }}>
+                  {lobbyName.length > 0 ? (
+                    <>
+                      {lobbyNameInfo.count} / {lobbyNameInfo.max}字
+                      {lobbyNameInfo.isOver && <b style={{ marginLeft: '4px' }}>(文字数オーバー)</b>}
+                    </>
+                  ) : (
+                    '半角24字 / 全角・混合12字以内'
+                  )}
+                </span>
               </div>
-            )}
-          </div>
-        )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={lobbyName}
+                  onChange={(e) => setLobbyName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleApplyRename();
+                    }
+                  }}
+                  placeholder={players[myId]?.name || '新しい名前を入力 (半角24字/全角12字以内)'}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: lobbyNameInfo.isOver ? '1px solid #ef4444' : '1px solid #475569',
+                    backgroundColor: '#1e293b',
+                    color: '#fff',
+                    fontSize: '0.95em',
+                  }}
+                />
+                <button
+                  onClick={handleApplyRename}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    backgroundColor: lobbyNameInfo.isOver ? '#4c1d95' : '#7c3aed',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.9em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  変更する
+                </button>
+              </div>
+              {lobbyNameInfo.isOver && (
+                <div style={{ color: '#ef4444', fontSize: '0.8em', marginTop: '4px' }}>
+                  ⚠️ {lobbyNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
+                </div>
+              )}
+              {renameNotice && (
+                <div style={{ marginTop: '6px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>
+                  ✓ {renameNotice}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {!isHost && (
           <div style={{ marginTop: '16px', color: '#94a3b8', textAlign: 'center' }}>

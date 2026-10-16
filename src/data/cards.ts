@@ -1,5 +1,6 @@
 import type { CardDefinition } from '../types/cards';
 
+// CARD_DEFINITIONSについて、[id: string]の部分はカードIDと同じの為、どちらかだけ変更すると不整合が生じる可能性があるので注意すること
 export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
   // === デフォルトカード ===
   normal_attack: {
@@ -650,7 +651,7 @@ export function formatCardDescription(
   const clean = description.replace(/[(\(]=[0-9.]+[)\)]/g, '');
   if (!stats) return clean;
 
-  const regex = /(自身の)?(最大HP|減少HP|ATK|DEF|MAT|MDF|SPD|CLT|SLD|HP)の(\d+(?:\.\d+)?)([%%])/g;
+  const regex = /(自身の)?(最大HP|減少HP|ATK|DEF|MAT|MDF|SPD|CLT|SLD|HP)の(\d+(?:\.\d+)?)([%％])/g;
   return clean.replace(regex, (match, prefix, stat, percent, symbol) => {
     let baseValue: number | undefined;
     switch (stat) {

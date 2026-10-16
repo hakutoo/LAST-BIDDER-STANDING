@@ -8,10 +8,13 @@ import { PlayerBoard } from './components/PlayerBoard';
 import { DraftView } from './components/DraftView';
 import { ActionView } from './components/ActionView';
 import { ActionResolutionView } from './components/ActionResolutionView';
+import { GoldDistributionView } from './components/GoldDistributionView';
+import { DraftResolutionView } from './components/DraftResolutionView';
 import { GameLogView } from './components/GameLogView';
 import type { DraftBid, PlayerAction } from './types/game';
 import { ROLE_DEFINITIONS } from './data/roles';
 import { CARD_DEFINITIONS } from './data/cards';
+import { clampPlayerName } from './utils/nameValidator';
 
 export const App: React.FC = () => {
   const [network] = useState(() => new PeerNetworkManager());
@@ -188,6 +191,7 @@ const toPeerRoomId = (code: string): string => {
 
   // 1. 部屋作成（ホスト）
   const handleCreateRoom = async (name: string) => {
+    const safeName = clampPlayerName(name);
     try {
       const code = Math.floor(1000 + Math.random() * 9000).toString();
       const peerId = toPeerRoomId(code);
@@ -211,7 +215,7 @@ const toPeerRoomId = (code: string): string => {
       setRoomCode(code);
       setIsHost(true);
 
-      const engine = new GameEngine(peerId, peerId, name, () => {
+      const engine = new GameEngine(peerId, peerId, safeName, () => {
         onEngineUpdateRef.current();
       });
       engineRef.current = engine;
@@ -227,6 +231,7 @@ const toPeerRoomId = (code: string): string => {
 
   // 2. 部屋参加（クライアント）
   const handleJoinRoom = async (targetRoomCode: string, name: string) => {
+    const safeName = clampPlayerName(name);
     setIsConnecting(true);
     const normalizedCode = normalizeRoomCode(targetRoomCode);
     const targetPeerId = toPeerRoomId(targetRoomCode);
@@ -236,7 +241,7 @@ const toPeerRoomId = (code: string): string => {
         handleHostMessageOnClient,
         () => {
           // 接続完了時に参加リクエスト送信
-          network.sendToHost({ type: 'JOIN_REQUEST', playerName: name });
+          network.sendToHost({ type: 'JOIN_REQUEST', playerName: safeName });
         },
         () => {
           alert('ホストから切断されました。');
@@ -282,11 +287,12 @@ const toPeerRoomId = (code: string): string => {
 
   // 名前変更（ロビー中のみ）
   const handleRename = (newName: string) => {
-    if (!newName.trim()) return;
+    const safeName = clampPlayerName(newName);
+    if (!safeName) return;
     if (isHost && engineRef.current) {
-      engineRef.current.renamePlayer(effectiveMyId, newName.trim());
+      engineRef.current.renamePlayer(effectiveMyId, safeName);
     } else {
-      network.sendToHost({ type: 'SET_NAME', playerName: newName.trim() });
+      network.sendToHost({ type: 'SET_NAME', playerName: safeName });
     }
   };
 
@@ -383,7 +389,7 @@ const toPeerRoomId = (code: string): string => {
             <div>
               <span style={{ fontSize: '1.2em', fontWeight: 'bold' }}>第 {syncData.turn} ターン</span>
               <span style={{ marginLeft: '12px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#334155', fontSize: '0.85em' }}>
-                フェーズ: {currentPhase === 'DRAFT' ? 'ドラフト' : currentPhase === 'ACTION' ? '行動選択' : currentPhase === 'RESOLVING' ? '行動解決中' : currentPhase === 'ROUND_RESULT' ? '結果確認' : currentPhase}
+                フェーズ: {currentPhase === 'GOLD_DISTRIBUTION' ? '給与獲得' : currentPhase === 'DRAFT' ? 'ドラフト' : currentPhase === 'RESOLVING_DRAFT' ? 'ドラフト結果' : currentPhase === 'ACTION' ? '行動選択' : currentPhase === 'RESOLVING' ? '行動解決中' : currentPhase === 'ROUND_RESULT' ? '結果確認' : currentPhase}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -437,6 +443,8 @@ const toPeerRoomId = (code: string): string => {
             onSelectTarget={(id) => setSelectedTargetId(id)}
             canSelectTarget={currentPhase === 'ACTION'}
             activeEvent={syncData.activeResolutionEvent}
+            activeGoldEvent={syncData.activeGoldEvent}
+            activeDraftEvent={syncData.activeDraftEvent}
           />
 
           {/* ゲーム終了画面 */}
@@ -466,6 +474,14 @@ const toPeerRoomId = (code: string): string => {
           )}
 
           {/* 各フェーズのメイン操作パネル */}
+          {currentPhase === 'GOLD_DISTRIBUTION' && (
+            <GoldDistributionView
+              event={syncData.activeGoldEvent || null}
+              isHost={isHost}
+              onSkip={handleSkipResolution}
+            />
+          )}
+
           {currentPhase === 'DRAFT' && (
             <DraftView
               key={`draft-${syncData.turn}`}
@@ -477,6 +493,14 @@ const toPeerRoomId = (code: string): string => {
               onSubmitBid={handleSubmitBid}
               player={syncData.players[effectiveMyId]}
               players={syncData.players}
+            />
+          )}
+
+          {currentPhase === 'RESOLVING_DRAFT' && (
+            <DraftResolutionView
+              event={syncData.activeDraftEvent || null}
+              isHost={isHost}
+              onSkip={handleSkipResolution}
             />
           )}
 
@@ -512,7 +536,7 @@ const toPeerRoomId = (code: string): string => {
 
           {/* バトルログ */}
           <div style={{ marginTop: '16px' }}>
-            <GameLogView logs={syncData.logs} />
+            <GameLogView logs={syncData.logs} myId={effectiveMyId} />
           </div>
         </div>
       )}

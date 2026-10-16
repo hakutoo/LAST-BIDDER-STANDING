@@ -3,10 +3,15 @@ import type { GameLogEntry } from '../types/game';
 
 interface Props {
   logs: GameLogEntry[];
+  myId?: string;
 }
 
-export const GameLogView: React.FC<Props> = ({ logs }) => {
+export const GameLogView: React.FC<Props> = ({ logs, myId }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const displayLogs = myId
+    ? logs.filter((log) => !log.visibleToPlayerId || log.visibleToPlayerId === myId)
+    : logs;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -29,7 +34,7 @@ export const GameLogView: React.FC<Props> = ({ logs }) => {
       <div style={{ fontWeight: 'bold', color: '#94a3b8', borderBottom: '1px solid #334155', paddingBottom: '4px', marginBottom: '4px' }}>
         📜 バトルログ
       </div>
-      {logs.map((log) => {
+      {displayLogs.map((log) => {
         let color = '#e2e8f0';
         if (log.type === 'damage') color = '#f87171';
         if (log.type === 'heal') color = '#4ade80';

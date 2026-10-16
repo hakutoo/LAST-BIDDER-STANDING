@@ -1,4 +1,15 @@
-import type { DraftBid, GameLogEntry, GamePhase, PlayerAction, PublicPlayerInfo, CardInstance, DraftCard, BattleEvent } from '../types/game';
+import type {
+  DraftBid,
+  GameLogEntry,
+  GamePhase,
+  PlayerAction,
+  PublicPlayerInfo,
+  CardInstance,
+  DraftCard,
+  BattleEvent,
+  GoldDistributionEvent,
+  DraftResolutionEvent,
+} from '../types/game';
 
 // クライアント -> ホスト
 export type ClientMessage = 
@@ -25,6 +36,8 @@ export interface ClientSyncData {
   winnerId: string | null | 'DRAW' | 'FORCE_QUIT';
   logs: GameLogEntry[];
   phaseDeadline: number | null; // 制限時間
+  activeGoldEvent?: GoldDistributionEvent | null;
+  activeDraftEvent?: DraftResolutionEvent | null;
   activeResolutionEvent?: BattleEvent | null;
 }
 

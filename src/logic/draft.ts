@@ -43,6 +43,12 @@ export interface DraftResolveResult {
   logs: GameLogEntry[];
 }
 
+export interface DraftResolutionStep {
+  event: import('../types/game').DraftResolutionEvent;
+  logs: GameLogEntry[];
+  updatedPlayers: { [id: string]: PlayerState };
+}
+
 // ユニークカードの価格取得
 export function getUniqueCardPrice(cardId: string): number {
   const def = CARD_DEFINITIONS[cardId];
@@ -56,15 +62,20 @@ export function getUniqueCardPrice(cardId: string): number {
   return 0;
 }
 
-// ドラフトの入札結果を解決
-export function resolveDraftBids(
+// ドラフト解決の二段階ステップ列を生成
+export function buildDraftResolutionSteps(
   draftPool: DraftCard[],
   bids: { [playerId: string]: DraftBid },
   players: { [id: string]: PlayerState },
   turn: number
-): DraftResolveResult {
+): {
+  steps: DraftResolutionStep[];
+  initialLogs: GameLogEntry[];
+  finalPlayers: { [id: string]: PlayerState };
+} {
   const updatedPlayers: { [id: string]: PlayerState } = JSON.parse(JSON.stringify(players));
-  const logs: GameLogEntry[] = [];
+  const initialLogs: GameLogEntry[] = [];
+  const steps: DraftResolutionStep[] = [];
 
   // 1. 各プレイヤーのユニークカード購入処理（購入履歴はログ非公開）
   for (const playerId of Object.keys(bids)) {
@@ -80,111 +91,198 @@ export function resolveDraftBids(
         if (player.g >= price) {
           player.g -= price;
           const instanceId = `unique_buy_${turn}_${player.id}_${Math.random().toString(36).substring(2, 8)}`;
-          addCardToHand(player, cardDef, instanceId, logs, turn);
+          addCardToHand(player, cardDef, instanceId, initialLogs, turn);
         }
       }
     }
   }
 
-  // 各ドラフトカードについて最高入札者を判定
-  for (const draftCard of draftPool) {
+  // 2. 各ドラフトカードについて「二段階（入札開示 ➔ 落札確定＆獲得メッセージ）」ステップを生成
+  const totalCards = draftPool.length;
+
+  for (let cardIdx = 0; cardIdx < totalCards; cardIdx++) {
+    const draftCard = draftPool[cardIdx];
     const cardDef = CARD_DEFINITIONS[draftCard.cardId];
     if (!cardDef) continue;
 
-    // このカードに対する各プレイヤーの実効入札額を収集
+    // 全生存プレイヤーの入札情報を収集
     const cardBids: { playerId: string; originalBid: number; effectiveBid: number }[] = [];
+    const playerBidInfos: import('../types/game').DraftPlayerBidInfo[] = [];
 
-    for (const playerId of Object.keys(bids)) {
-      const player = updatedPlayers[playerId];
-      if (!player || !player.isAlive) continue;
+    for (const player of Object.values(updatedPlayers)) {
+      if (!player.isAlive) continue;
 
-      const playerBidObj = bids[playerId];
+      const playerBidObj = bids[player.id];
       const rawBid = playerBidObj?.bids?.[draftCard.instanceId];
       const bidAmount = Math.max(0, Number(rawBid) || 0);
+      let effectiveBid = bidAmount;
+
       if (bidAmount > 0) {
-        let effectiveBid = bidAmount;
         // ジャガーノートのパッシブ「大富豪の療養」: 回復カード入札時、自身の入札Gを1.25倍として扱う
         if (player.roleId === 'juggernaut' && (cardDef.category === 'HEAL' || cardDef.id === 'draft_heal_powder')) {
           effectiveBid = Math.floor(bidAmount * GAME_CONFIG.JUGGERNAUT_BID_MULTIPLIER);
         }
-        cardBids.push({ playerId, originalBid: bidAmount, effectiveBid });
+        cardBids.push({ playerId: player.id, originalBid: bidAmount, effectiveBid });
+      }
+
+      playerBidInfos.push({
+        playerId: player.id,
+        playerName: player.name,
+        roleId: player.roleId,
+        bidAmount,
+        effectiveBid,
+        isWinner: false,
+      });
+    }
+
+    // 勝者判定
+    let winnerEntry: { playerId: string; originalBid: number; effectiveBid: number } | null = null;
+    let winner: PlayerState | null = null;
+
+    if (cardBids.length > 0) {
+      let maxEffectiveBid = 0;
+      for (const b of cardBids) {
+        const eff = Number(b.effectiveBid);
+        if (eff > maxEffectiveBid) {
+          maxEffectiveBid = eff;
+        }
+      }
+
+      const highestBidders = cardBids.filter(b => Number(b.effectiveBid) === maxEffectiveBid);
+      winnerEntry = highestBidders[Math.floor(Math.random() * highestBidders.length)];
+      winner = updatedPlayers[winnerEntry.playerId];
+
+      // 勝者フラグの更新
+      const winningInfo = playerBidInfos.find(p => p.playerId === winnerEntry!.playerId);
+      if (winningInfo) {
+        winningInfo.isWinner = true;
       }
     }
 
-    if (cardBids.length === 0) {
-      logs.push({
+    // === 段階1: 入札額の開示（プレイヤー一覧表示） ===
+    const revealBids = playerBidInfos.map(b => ({ ...b, isWinner: false })); // 段階1ではまだ勝者強調しない
+    steps.push({
+      event: {
+        step: 'BIDS_REVEAL',
+        cardIndex: cardIdx + 1,
+        totalCards,
+        cardInstanceId: draftCard.instanceId,
+        cardId: cardDef.id,
+        cardName: cardDef.name,
+        bids: revealBids,
+        winnerId: winner?.id || null,
+        message: '各プレイヤーの入札額が開示されました。',
+      },
+      logs: [],
+      updatedPlayers: JSON.parse(JSON.stringify(updatedPlayers)),
+    });
+
+    // === 段階2: 勝ったプレイヤーを強調して表示し、獲得したことを示すメッセージを表示 ===
+    const step2Logs: GameLogEntry[] = [];
+    let announceMsg = '';
+    let statChangeText: string | undefined = undefined;
+
+    if (winner && winnerEntry) {
+      // 落札者のGを消費
+      winner.g = Math.max(0, winner.g - winnerEntry.originalBid);
+
+      const isJgBonus = (winner.roleId === 'juggernaut' && winnerEntry.effectiveBid > winnerEntry.originalBid);
+      const jgBonusText = isJgBonus ? ` (ジャガーノート実効: ${winnerEntry.effectiveBid}G)` : '';
+
+      step2Logs.push({
+        id: `draft_log_${Math.random()}`,
+        turn,
+        text: `【ドラフト】${winner.name} が「${cardDef.name}」を ${winnerEntry.originalBid}G${jgBonusText} で落札しました。`,
+        type: 'draft',
+      });
+
+      // 獲得カードの処理
+      if (cardDef.statusBonus) {
+        // ステータスカード
+        const stat = cardDef.statusBonus.stat;
+        if (stat === 'HP') {
+          const prevMaxHp = winner.maxHp;
+          const prevHp = winner.hp;
+          applyStatusCardBonus(winner, cardDef);
+          statChangeText = `(最大HP: ${prevMaxHp} → ${winner.maxHp}, HP: ${prevHp} → ${winner.hp})`;
+        } else if (stat === 'CLT') {
+          const prevClt = winner.clt;
+          applyStatusCardBonus(winner, cardDef);
+          statChangeText = `(${prevClt}% → ${winner.clt}%)`;
+        } else {
+          const prop = stat.toLowerCase() as 'atk' | 'def' | 'mat' | 'mdf' | 'spd' | 'sld';
+          const prevVal = winner[prop];
+          applyStatusCardBonus(winner, cardDef);
+          const newVal = winner[prop];
+          statChangeText = `(${prevVal} → ${newVal})`;
+        }
+
+        step2Logs.push({
+          id: `draft_log_${Math.random()}`,
+          turn,
+          text: `【ステータス反映】${winner.name} の ${cardDef.statusBonus.stat} が増加しました。${statChangeText}`,
+          type: 'info',
+        });
+
+        announceMsg = `🎉 ${winner.name} が ${winnerEntry.originalBid}G で落札！ ${cardDef.name} により ${cardDef.statusBonus.stat} が増加しました！`;
+      } else {
+        // 通常カードを手札に追加
+        addCardToHand(winner, cardDef, draftCard.instanceId, step2Logs, turn);
+        announceMsg = `🎉 ${winner.name} が ${winnerEntry.originalBid}G で落札し、「${cardDef.name}」を獲得しました！`;
+      }
+    } else {
+      // 入札者なし
+      step2Logs.push({
         id: `draft_log_${Math.random()}`,
         turn,
         text: `【ドラフト】「${cardDef.name}」には入札がありませんでした。`,
         type: 'draft',
       });
-      continue;
+      announceMsg = `「${cardDef.name}」には入札がなかったため、流札となりました。`;
     }
 
-    // 最高実効入札額を特定 (数値比較を厳格に保証)
-    let maxEffectiveBid = 0;
-    for (const b of cardBids) {
-      const eff = Number(b.effectiveBid);
-      if (eff > maxEffectiveBid) {
-        maxEffectiveBid = eff;
-      }
-    }
-
-    // 最高額をつけたプレイヤーたち（同額入札の可能性あり）
-    const highestBidders = cardBids.filter(b => Number(b.effectiveBid) === maxEffectiveBid);
-
-    // 同額入札の場合はランダムに1人決定
-    const winnerEntry = highestBidders[Math.floor(Math.random() * highestBidders.length)];
-    const winner = updatedPlayers[winnerEntry.playerId];
-
-    // 落札者のGを消費
-    winner.g = Math.max(0, winner.g - winnerEntry.originalBid);
-
-    const jgBonusText = (winner.roleId === 'juggernaut' && winnerEntry.effectiveBid > winnerEntry.originalBid)
-      ? ` (ジャガーノート実効: ${winnerEntry.effectiveBid}G)`
-      : '';
-    logs.push({
-      id: `draft_log_${Math.random()}`,
-      turn,
-      text: `【ドラフト】${winner.name} が「${cardDef.name}」を ${winnerEntry.originalBid}G${jgBonusText} で落札しました。`,
-      type: 'draft',
+    steps.push({
+      event: {
+        step: 'WINNER_ANNOUNCE',
+        cardIndex: cardIdx + 1,
+        totalCards,
+        cardInstanceId: draftCard.instanceId,
+        cardId: cardDef.id,
+        cardName: cardDef.name,
+        bids: playerBidInfos, // 勝者フラグが立っている
+        winnerId: winner?.id || null,
+        winnerName: winner?.name,
+        winningBid: winnerEntry?.originalBid,
+        effectiveWinningBid: winnerEntry?.effectiveBid,
+        isJuggernautBonus: (winner?.roleId === 'juggernaut' && (winnerEntry?.effectiveBid || 0) > (winnerEntry?.originalBid || 0)),
+        message: announceMsg,
+        statChangeText,
+      },
+      logs: step2Logs,
+      updatedPlayers: JSON.parse(JSON.stringify(updatedPlayers)),
     });
+  }
 
-    // 獲得カードの処理
-    if (cardDef.statusBonus) {
-      // ステータスカード: 即時ステータス反映（手札には入らない）
-      const stat = cardDef.statusBonus.stat;
-      let changeText;
-      if (stat === 'HP') {
-        const prevMaxHp = winner.maxHp;
-        const prevHp = winner.hp;
-        applyStatusCardBonus(winner, cardDef);
-        changeText = `(最大HP: ${prevMaxHp} → ${winner.maxHp}, HP: ${prevHp} → ${winner.hp})`;
-      } else if (stat === 'CLT') {
-        const prevClt = winner.clt;
-        applyStatusCardBonus(winner, cardDef);
-        changeText = `(${prevClt}% → ${winner.clt}%)`;
-      } else {
-        const prop = stat.toLowerCase() as 'atk' | 'def' | 'mat' | 'mdf' | 'spd' | 'sld';
-        const prevVal = winner[prop];
-        applyStatusCardBonus(winner, cardDef);
-        const newVal = winner[prop];
-        changeText = `(${prevVal} → ${newVal})`;
-      }
+  return { steps, initialLogs, finalPlayers: updatedPlayers };
+}
 
-      logs.push({
-        id: `draft_log_${Math.random()}`,
-        turn,
-        text: `【ステータス反映】${winner.name} の ${cardDef.statusBonus.stat} が増加しました。${changeText}`,
-        type: 'info',
-      });
-    } else {
-      // 通常のカード: 手札に追加
-      addCardToHand(winner, cardDef, draftCard.instanceId, logs, turn);
+// ドラフトの入札結果を一括解決（既存互換）
+export function resolveDraftBids(
+  draftPool: DraftCard[],
+  bids: { [playerId: string]: DraftBid },
+  players: { [id: string]: PlayerState },
+  turn: number
+): DraftResolveResult {
+  const { steps, initialLogs, finalPlayers } = buildDraftResolutionSteps(draftPool, bids, players, turn);
+  const logs: GameLogEntry[] = [...initialLogs];
+
+  for (const step of steps) {
+    for (const l of step.logs) {
+      logs.push(l);
     }
   }
 
-  return { updatedPlayers, logs };
+  return { updatedPlayers: finalPlayers, logs };
 }
 
 // ステータスカードの即時ボーナス適用

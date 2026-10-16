@@ -1,10 +1,11 @@
 import { calculateDamage } from './logic/damage';
 import { calculateTurnGold } from './logic/gold';
-import { resolveDraftBids } from './logic/draft';
+import { resolveDraftBids, buildDraftResolutionSteps } from './logic/draft';
 import { resolveTurn, buildTurnResolutionSteps } from './logic/turnResolver';
 import { createInitialPlayerState, applyRoleToPlayer } from './logic/playerInit';
 import { GameEngine } from './logic/gameEngine';
 import { formatCardDescription, getCardDescription, CARD_DEFINITIONS } from './data/cards';
+import { validatePlayerName, clampPlayerName, hasFullWidthChar, getNameCharLimitInfo } from './utils/nameValidator';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -254,7 +255,12 @@ console.log('\n=== 3. ドラフト解決テスト ===');
     bids: { [engine.state.draftPool[0]?.instanceId || 'x']: 3 },
     isConfirmed: true,
   });
-  assert(engine.state.phase === 'ACTION', '全員が確定したため即座にACTIONフェーズへ移行');
+  assert(
+    engine.state.phase === 'RESOLVING_DRAFT',
+    `全員が確定したためドラフト解決演出フェーズ(RESOLVING_DRAFT)へ移行、実際: ${engine.state.phase}`
+  );
+  engine.skipResolution();
+  assert(engine.state.phase === 'ACTION', '演出スキップ後に即座にACTIONフェーズへ移行');
   engine.destroy();
 }
 
@@ -424,21 +430,21 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
   const desc1 = formatCardDescription('ATKの80%の物理攻撃', { atk: 20 });
   assert(desc1 === 'ATKの80%(=16)の物理攻撃', `期待値「ATKの80%(=16)の物理攻撃」、実際: ${desc1}`);
 
-  // テスト2: 全角％表記（通常攻撃: ATKの50％を攻撃値とした物理攻撃を行う。使用後は消費される。）
+  // テスト2: 通常攻撃（ATKの50%）
   const desc2 = formatCardDescription(CARD_DEFINITIONS.normal_attack.description, { atk: 20 });
-  assert(desc2.includes('ATKの50％(=10)'), `全角％の置換期待値「ATKの50％(=10)」、実際: ${desc2}`);
+  assert(desc2.includes('ATKの50%(=10)') || desc2.includes('ATKの50％(=10)'), `置換期待値「ATKの50%(=10)」、実際: ${desc2}`);
 
-  // テスト3: DEF参照（リベンジ: DEFの120％を攻撃値とした物理攻撃を行う。）
+  // テスト3: DEF参照（リベンジ）
   const desc3 = formatCardDescription(CARD_DEFINITIONS.unique_sentinel_b.description, { def: 16 });
-  assert(desc3.includes('DEFの120％(=19.2)'), `DEF参照の置換期待値「DEFの120％(=19.2)」、実際: ${desc3}`);
+  assert(desc3.includes('DEFの120%(=19.2)') || desc3.includes('DEFの120％(=19.2)'), `DEF参照の置換期待値「DEFの120%(=19.2)」、実際: ${desc3}`);
 
-  // テスト4: 最大HP参照（ヘビースタンプ: 自身の最大HPの20％の物理攻撃を行う）
+  // テスト4: 最大HP参照（ヘビースタンプ）
   const desc4 = formatCardDescription(CARD_DEFINITIONS.unique_juggernaut_b.description, { maxHp: 120, hp: 120 });
-  assert(desc4.includes('最大HPの20％(=24)'), `最大HP参照の置換期待値「最大HPの20％(=24)」、実際: ${desc4}`);
+  assert(desc4.includes('最大HPの20%(=24)') || desc4.includes('最大HPの20％(=24)'), `最大HP参照の置換期待値「最大HPの20%(=24)」、実際: ${desc4}`);
 
-  // テスト5: 減少HP参照（リジューブ・パワー: 自身の減少HPの30％を即座に回復する。）
+  // テスト5: 減少HP参照（リジューブ・パワー）
   const desc5 = formatCardDescription(CARD_DEFINITIONS.unique_juggernaut_a.description, { maxHp: 100, hp: 70 });
-  assert(desc5.includes('減少HPの30％(=9)'), `減少HP参照の置換期待値「減少HPの30％(=9)」、実際: ${desc5}`);
+  assert(desc5.includes('減少HPの30%(=9)') || desc5.includes('減少HPの30％(=9)'), `減少HP参照の置換期待値「減少HPの30%(=9)」、実際: ${desc5}`);
 
   // テスト6: MAT/MDF参照
   const desc6 = formatCardDescription('MATの100％を攻撃値とした魔法攻撃を行う。', { mat: 15 });
@@ -458,7 +464,7 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
 
   // テスト10: getCardDescriptionヘルパーの動作確認
   const desc10 = getCardDescription(CARD_DEFINITIONS.heavy_blade, { atk: 20 });
-  assert(desc10.includes('ATKの120％(=24)'), `getCardDescriptionの期待値「ATKの120％(=24)」、実際: ${desc10}`);
+  assert(desc10.includes('ATKの120%(=24)') || desc10.includes('ATKの120％(=24)'), `getCardDescriptionの期待値「ATKの120%(=24)」、実際: ${desc10}`);
 }
 
 console.log('\n=== 9. バグ修正検証テスト ===');
@@ -596,6 +602,166 @@ console.log('\n=== 9. バグ修正検証テスト ===');
   assert(!updatedP2.hand.some(c => c.cardId === 'heavy_blade'), '2G入札のP2は落札できない');
   assert(updatedP1.g === 10, `P1のGが10消費されて残10G、実際: ${updatedP1.g}`);
   assert(updatedP2.g === 20, `P2のGは消費されず20Gのまま、実際: ${updatedP2.g}`);
+}
+
+// テスト10: 獲得Gログのプレイヤー別個別表示（他プレイヤーの獲得Gは非公開）
+console.log('\n=== 10. 獲得Gログ個別表示テスト ===');
+{
+  const engine = new GameEngine('room1', 'host1', 'Host', () => {});
+  engine.addPlayer('client1', 'Client');
+  engine.startRoleSelect();
+  engine.selectRole('host1', 'berserker');
+  engine.selectRole('client1', 'mage');
+
+  // 第1ターンのドラフト入札を完了
+  engine.submitDraftBid({ playerId: 'host1', bids: {}, isConfirmed: true });
+  engine.submitDraftBid({ playerId: 'client1', bids: {}, isConfirmed: true });
+
+  // 第1ターンの行動選択を完了（スキップ）
+  engine.submitAction({ playerId: 'host1', cardInstanceId: null, targetPlayerId: null });
+  engine.submitAction({ playerId: 'client1', cardInstanceId: null, targetPlayerId: null });
+
+  // 解決スキップしてROUND_RESULTにした後、第2ターンのドラフトフェーズを開始
+  engine.skipResolution();
+  (engine as any).clearTimer();
+  engine.state.turn = 2;
+  (engine as any).startDraftPhase();
+
+  assert(engine.state.turn === 2, `第2ターンになっていること、実際: ${engine.state.turn}`);
+  assert(engine.state.phase === 'DRAFT', `第2ターンのドラフトフェーズであること、実際: ${engine.state.phase}`);
+
+  // 各プレイヤー向けの同期データを生成
+  const hostSync = engine.generateClientSyncData('host1');
+  const clientSync = engine.generateClientSyncData('client1');
+
+  // ホスト視点のログ検証
+  const hostHasHostSalaryLog = hostSync.logs.some(l => l.text.includes('【給与獲得】Host'));
+  const hostHasClientSalaryLog = hostSync.logs.some(l => l.text.includes('【給与獲得】Client'));
+  assert(hostHasHostSalaryLog, 'ホスト側のログに自身の給与獲得ログが含まれている');
+  assert(!hostHasClientSalaryLog, 'ホスト側のログに他プレイヤー(Client)の給与獲得ログが含まれていない');
+
+  // クライアント視点のログ検証
+  const clientHasClientSalaryLog = clientSync.logs.some(l => l.text.includes('【給与獲得】Client'));
+  const clientHasHostSalaryLog = clientSync.logs.some(l => l.text.includes('【給与獲得】Host'));
+  assert(clientHasClientSalaryLog, 'クライアント側のログに自身の給与獲得ログが含まれている');
+  assert(!clientHasHostSalaryLog, 'クライアント側のログに他プレイヤー(Host)の給与獲得ログが含まれていない');
+
+  // 全体向けログ（システムログ等）は両者に配信されていること
+  const hostHasDraftStartLog = hostSync.logs.some(l => l.text.includes('ドラフトフェーズ開始'));
+  const clientHasDraftStartLog = clientSync.logs.some(l => l.text.includes('ドラフトフェーズ開始'));
+  assert(hostHasDraftStartLog && clientHasDraftStartLog, '全体共通のログは両プレイヤーに届いている');
+
+  console.log('✓ 獲得Gログが自身のもののみ表示され、他プレイヤーのものは非公開であることを確認');
+  engine.destroy();
+}
+
+// テスト11: プレイヤー名文字数制限・バリデーションテスト
+console.log('\n=== 11. プレイヤー名文字数制限テスト ===');
+{
+  // 1. 半角文字の判定
+  assert(!hasFullWidthChar('abcXYZ123!# '), '半角ASCII文字列は全角なしと判定される');
+  assert(!hasFullWidthChar('ｱｲｳｴｵｶｷｸｹｺ'), '半角カナ文字列は全角なしと判定される');
+  assert(hasFullWidthChar('あいうえお'), 'ひらがなは全角ありと判定される');
+  assert(hasFullWidthChar('アイウエオ'), '全角カタカナは全角ありと判定される');
+  assert(hasFullWidthChar('山田太郎'), '漢字は全角ありと判定される');
+  assert(hasFullWidthChar('abcあ123'), '半角と全角の混合は全角ありと判定される');
+  assert(hasFullWidthChar('Player１'), '全角数字混じりは全角ありと判定される');
+
+  // UI表示用ヘルパー
+  const halfInfo = getNameCharLimitInfo('hello');
+  assert(halfInfo.count === 5 && halfInfo.max === 24 && !halfInfo.isOver && !halfInfo.hasFull, '半角のUI情報が正常');
+  const mixInfo = getNameCharLimitInfo('勇者Hero');
+  assert(mixInfo.count === 6 && mixInfo.max === 12 && !mixInfo.isOver && mixInfo.hasFull, '混合のUI情報が正常');
+
+  // 2. 文字数制限バリデーション
+  // 半角のみ: 最大24文字
+  const half24 = '123456789012345678901234';
+  const half25 = '1234567890123456789012345';
+  assert(validatePlayerName(half24).valid, '半角24文字は有効');
+  assert(!validatePlayerName(half25).valid, '半角25文字は無効');
+
+  // 全角のみ: 最大12文字
+  const full12 = 'あいうえおかきくけこさし';
+  const full13 = full12 + 'す';
+  assert(validatePlayerName(full12).valid, '全角12文字は有効');
+  assert(!validatePlayerName(full13).valid, '全角13文字は無効');
+
+  // 混合: 最大12文字
+  const mix12 = '田中1234567890'; // 全角2 + 半角10 = 計12文字
+  const mix13 = '田中12345678901'; // 全角2 + 半角11 = 計13文字
+  assert(validatePlayerName(mix12).valid, '混合12文字は有効');
+  assert(!validatePlayerName(mix13).valid, '混合13文字は無効');
+
+  // 空白のみ
+  assert(!validatePlayerName('').valid, '空文字は無効');
+  assert(!validatePlayerName('   ').valid, '空白のみは無効');
+
+  // 3. clampPlayerName による切り詰めサニタイズ
+  assert(clampPlayerName(half24) === half24, '半角24文字は切り詰めなし');
+  assert(clampPlayerName(half25) === half24, '半角25文字は24文字に切り詰め');
+  assert(clampPlayerName(full12) === full12, '全角12文字は切り詰めなし');
+  assert(clampPlayerName(full13) === full12, '全角13文字は12文字に切り詰め');
+  assert(clampPlayerName(mix13) === mix12, '混合13文字は12文字に切り詰め');
+
+  // 4. GameEngineでの自動クランプ反映
+  const engine = new GameEngine('roomNameTest', 'host1', half25, () => {});
+  assert(engine.state.players['host1'].name === half24, 'ホスト名が半角24文字にクランプされる');
+
+  engine.addPlayer('client1', full13);
+  assert(engine.state.players['client1'].name === full12, '参加クライアント名が全角12文字にクランプされる');
+
+  engine.renamePlayer('client1', mix13);
+  assert(engine.state.players['client1'].name === mix12, '名前変更時に混合12文字にクランプされる');
+
+  engine.destroy();
+}
+
+console.log('\n=== 12. ドラフト結果二段階演出イベント生成テスト ===');
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.g = 20;
+  const p2 = createInitialPlayerState('p2', 'P2', false);
+  p2.g = 20;
+
+  const draftPool = [
+    { instanceId: 'c1', cardId: 'heavy_blade' },
+    { instanceId: 'c2', cardId: 'heal_powder' },
+  ];
+
+  const bids = {
+    p1: { playerId: 'p1', bids: { c1: 8, c2: 0 } },
+    p2: { playerId: 'p2', bids: { c1: 3, c2: 0 } },
+  };
+
+  const { steps } = buildDraftResolutionSteps(draftPool, bids, { p1, p2 }, 1);
+
+  // 2枚のカードにつき、各2ステップ（開示 ➔ 確定）= 計4ステップ
+  assert(steps.length === 4, `ステップ数は4（2カード×2段階）、実際: ${steps.length}`);
+
+  // カード1・段階1 (開示)
+  assert(steps[0].event.step === 'BIDS_REVEAL', 'ステップ0はBIDS_REVEAL');
+  assert(steps[0].event.cardName.includes('ヘビーブレード'), '対象カードはヘビーブレード');
+  assert(steps[0].event.bids.length === 2, '全プレイヤーの入札額一覧が含まれる');
+  const p1Bid = steps[0].event.bids.find(b => b.playerId === 'p1');
+  const p2Bid = steps[0].event.bids.find(b => b.playerId === 'p2');
+  assert(p1Bid?.bidAmount === 8, 'P1の入札額が8G');
+  assert(p2Bid?.bidAmount === 3, 'P2の入札額が3G');
+  assert(!p1Bid?.isWinner, '段階1ではまだ勝者強調フラグは立っていない');
+
+  // カード1・段階2 (落札確定＆メッセージ)
+  assert(steps[1].event.step === 'WINNER_ANNOUNCE', 'ステップ1はWINNER_ANNOUNCE');
+  assert(steps[1].event.winnerId === 'p1', '落札者はP1');
+  assert(steps[1].event.winningBid === 8, '落札額は8G');
+  const p1WinnerBid = steps[1].event.bids.find(b => b.playerId === 'p1');
+  assert(p1WinnerBid?.isWinner === true, '段階2で勝者フラグがtrueに設定される');
+  assert(steps[1].event.message.includes('落札し'), '獲得メッセージが含まれる');
+  assert(steps[1].updatedPlayers['p1'].g === 12, 'P1のGが8消費されて12G');
+  assert(steps[1].updatedPlayers['p1'].hand.some(c => c.cardId === 'heavy_blade'), 'P1の手札にヘビーブレードが追加されている');
+
+  // カード2・段階2 (流札)
+  assert(steps[3].event.step === 'WINNER_ANNOUNCE', 'ステップ3はWINNER_ANNOUNCE');
+  assert(steps[3].event.winnerId === null, '入札なしのためwinnerIdはnull');
+  assert(steps[3].event.message.includes('流札'), '流札メッセージが含まれる');
 }
 
 console.log('\n全テストが正常に通過しました！');

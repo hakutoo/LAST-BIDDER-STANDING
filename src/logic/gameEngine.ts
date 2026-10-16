@@ -1,10 +1,18 @@
-import type { GameState, PublicPlayerInfo, DraftBid, PlayerAction, GameLogEntry } from '../types/game';
+import type {
+  GameState,
+  PublicPlayerInfo,
+  DraftBid,
+  PlayerAction,
+  GameLogEntry,
+  GoldDistributionEvent,
+} from '../types/game';
 import type { ClientSyncData } from '../network/protocol';
 import { createInitialPlayerState, applyRoleToPlayer } from './playerInit';
 import { calculateTurnGold } from './gold';
-import { generateDraftPool, resolveDraftBids } from './draft';
+import { generateDraftPool, buildDraftResolutionSteps, type DraftResolutionStep } from './draft';
 import { buildTurnResolutionSteps, type TurnResolutionStep } from './turnResolver';
 import { GAME_CONFIG } from '../data/constants';
+import { clampPlayerName } from '../utils/nameValidator';
 
 export class GameEngine {
   public state: GameState;
@@ -12,10 +20,13 @@ export class GameEngine {
   private timerId: any = null;
   private resolutionQueue: TurnResolutionStep[] = [];
   private currentStepIndex: number = 0;
+  private draftResolutionQueue: DraftResolutionStep[] = [];
+  private currentDraftStepIndex: number = 0;
+  private goldDistributionEvents: { [playerId: string]: GoldDistributionEvent } = {};
 
   constructor(roomCode: string, hostId: string, hostName: string, onUpdate: (s: GameState) => void) {
     this.onStateUpdated = onUpdate;
-    const resolvedHostName = hostName.trim() || 'プレイヤー1';
+    const resolvedHostName = clampPlayerName(hostName.trim()) || 'プレイヤー1';
     const hostPlayer = createInitialPlayerState(hostId, resolvedHostName, true);
 
     this.state = {
@@ -37,6 +48,8 @@ export class GameEngine {
       }],
       winnerId: null,
       phaseDeadline: null,
+      activeGoldEvent: null,
+      activeDraftEvent: null,
       activeResolutionEvent: null,
     };
   }
@@ -52,7 +65,7 @@ export class GameEngine {
 
     // 名前が空の場合は「プレイヤーN」（N=参加順）を自動付与
     const playerCount = Object.keys(this.state.players).length + 1;
-    const resolvedName = name.trim() || `プレイヤー${playerCount}`;
+    const resolvedName = clampPlayerName(name.trim()) || `プレイヤー${playerCount}`;
 
     this.state.players[id] = createInitialPlayerState(id, resolvedName, false);
     this.state.playerOrder.push(id);
@@ -65,7 +78,7 @@ export class GameEngine {
     if (this.state.phase !== 'LOBBY') return;
     const player = this.state.players[id];
     if (!player) return;
-    const newName = name.trim();
+    const newName = clampPlayerName(name.trim());
     if (!newName || newName === player.name) return;
     const oldName = player.name;
     player.name = newName;
@@ -135,24 +148,66 @@ export class GameEngine {
     this.startDraftPhase();
   }
 
+  // ターン開始時のG獲得演出フェーズ
+  private startTurnGoldPhase(): void {
+    this.clearTimer();
+    this.state.phase = 'GOLD_DISTRIBUTION';
+    this.state.activeGoldEvent = null;
+
+    const goldEvents: { [playerId: string]: GoldDistributionEvent } = {};
+    for (const player of Object.values(this.state.players)) {
+      if (!player.isAlive) continue;
+      const prevG = player.g;
+      const breakdown = calculateTurnGold(player);
+      player.g += breakdown.total;
+      goldEvents[player.id] = {
+        playerId: player.id,
+        playerName: player.name,
+        roleId: player.roleId,
+        total: breakdown.total,
+        base: breakdown.base,
+        damageBonus: breakdown.damageBonus,
+        interest: breakdown.interest,
+        catchup: breakdown.catchup,
+        prevG,
+        newG: player.g,
+      };
+      this.addLog(
+        `【給与獲得】${player.name} は ${breakdown.total}G を獲得した。(基本給:${breakdown.base}, ボーナス:${breakdown.damageBonus}, 利子:${breakdown.interest}, 救済:${breakdown.catchup})`,
+        'system',
+        player.id
+      );
+    }
+    this.goldDistributionEvents = goldEvents;
+    this.notify();
+
+    // 2000ms 表示後、ドラフトフェーズへ移行
+    this.timerId = setTimeout(() => {
+      this.startDraftPhase();
+    }, 2000);
+  }
+
   // ドラフトフェーズ開始
   private startDraftPhase(): void {
     this.clearTimer();
     this.state.phase = 'DRAFT';
     this.state.draftBids = {};
+    this.state.activeGoldEvent = null;
 
-    // ターン開始時: 生存プレイヤーのG獲得計算（第1ターンは初期Gのみでドラフトに臨むためスキップ）
-    if (this.state.turn > 1) {
+    // もしテスト等で startTurnGoldPhase を経由せずに直接 startDraftPhase が呼ばれた場合のフォールバック
+    if (this.state.turn > 1 && Object.keys(this.goldDistributionEvents).length === 0) {
       for (const player of Object.values(this.state.players)) {
         if (!player.isAlive) continue;
         const breakdown = calculateTurnGold(player);
         player.g += breakdown.total;
         this.addLog(
           `【給与獲得】${player.name} は ${breakdown.total}G を獲得した。(基本給:${breakdown.base}, ボーナス:${breakdown.damageBonus}, 利子:${breakdown.interest}, 救済:${breakdown.catchup})`,
-          'system'
+          'system',
+          player.id
         );
       }
     }
+    this.goldDistributionEvents = {};
 
     // ドラフトプールの生成
     const aliveCount = Object.values(this.state.players).filter(p => p.isAlive).length;
@@ -187,20 +242,64 @@ export class GameEngine {
     }
   }
 
-  // ドラフト結果の解決とカード選択フェーズへ移行
+  // ドラフト結果の解決演出へ移行
   private finishDraftPhase(): void {
     this.clearTimer();
-    const result = resolveDraftBids(
+    this.state.phase = 'RESOLVING_DRAFT';
+
+    const { steps, initialLogs, finalPlayers } = buildDraftResolutionSteps(
       this.state.draftPool,
       this.state.draftBids,
       this.state.players,
       this.state.turn
     );
-    this.state.players = result.updatedPlayers;
-    for (const l of result.logs) {
+
+    // ユニークカード購入など初期ログを追加
+    for (const l of initialLogs) {
       this.state.logs.push(l);
     }
 
+    if (steps.length === 0) {
+      this.state.players = finalPlayers;
+      this.finishDraftResolution();
+      return;
+    }
+
+    this.draftResolutionQueue = steps;
+    this.currentDraftStepIndex = 0;
+    this.playNextDraftStep();
+  }
+
+  // ドラフト解決の二段階ステップを順次再生
+  private playNextDraftStep(): void {
+    if (this.currentDraftStepIndex >= this.draftResolutionQueue.length) {
+      this.finishDraftResolution();
+      return;
+    }
+
+    const step = this.draftResolutionQueue[this.currentDraftStepIndex];
+    this.currentDraftStepIndex++;
+
+    this.state.players = step.updatedPlayers;
+    for (const l of step.logs) {
+      this.state.logs.push(l);
+    }
+    this.state.activeDraftEvent = step.event;
+
+    // 表示時間: 段階1（開示）は2000ms、段階2（落札確定＆獲得メッセージ）は2000ms
+    const delay = step.event.step === 'BIDS_REVEAL' ? 2000 : 2000;
+
+    this.notify();
+
+    this.timerId = setTimeout(() => {
+      this.playNextDraftStep();
+    }, delay);
+  }
+
+  // ドラフト解決完了
+  private finishDraftResolution(): void {
+    this.clearTimer();
+    this.state.activeDraftEvent = null;
     this.startActionPhase();
   }
 
@@ -299,19 +398,19 @@ export class GameEngine {
     this.state.winnerId = step.winnerId;
 
     // イベントタイプに応じた表示待機時間 (ms)
-    let delay = 1300;
+    let delay = 2000;
     if (step.event.type === 'ACTION_START') {
-      delay = 1400;
+      delay = 2000;
     } else if (step.event.type === 'ATTACK_HIT') {
-      delay = step.event.isCritical ? 1600 : 1300;
+      delay = step.event.isCritical ? 2000 : 2000;
     } else if (step.event.type === 'ACTION_WAIT') {
-      delay = 900;
-    } else if (step.event.type === 'EFFECT_EXPIRED') {
-      delay = 850;
-    } else if (step.event.type === 'DEATH') {
       delay = 1500;
+    } else if (step.event.type === 'EFFECT_EXPIRED') {
+      delay = 1500;
+    } else if (step.event.type === 'DEATH') {
+      delay = 2000;
     } else if (step.event.type === 'POISON_DAMAGE') {
-      delay = 1100;
+      delay = 1500;
     }
 
     this.notify();
@@ -331,18 +430,38 @@ export class GameEngine {
 
   // 演出スキップ（残りのステップを即時適用）
   public skipResolution(): void {
-    if (this.state.phase !== 'RESOLVING') return;
-    this.clearTimer();
-
-    while (this.currentStepIndex < this.resolutionQueue.length) {
-      const step = this.resolutionQueue[this.currentStepIndex];
-      this.state.players = step.updatedPlayers;
-      this.state.logs.push(step.log);
-      this.state.winnerId = step.winnerId;
-      this.currentStepIndex++;
+    if (this.state.phase === 'GOLD_DISTRIBUTION') {
+      this.clearTimer();
+      this.startDraftPhase();
+      return;
     }
 
-    this.finishResolution();
+    if (this.state.phase === 'RESOLVING_DRAFT') {
+      this.clearTimer();
+      while (this.currentDraftStepIndex < this.draftResolutionQueue.length) {
+        const step = this.draftResolutionQueue[this.currentDraftStepIndex];
+        this.state.players = step.updatedPlayers;
+        for (const l of step.logs) {
+          this.state.logs.push(l);
+        }
+        this.currentDraftStepIndex++;
+      }
+      this.finishDraftResolution();
+      return;
+    }
+
+    if (this.state.phase === 'RESOLVING') {
+      this.clearTimer();
+      while (this.currentStepIndex < this.resolutionQueue.length) {
+        const step = this.resolutionQueue[this.currentStepIndex];
+        this.state.players = step.updatedPlayers;
+        this.state.logs.push(step.log);
+        this.state.winnerId = step.winnerId;
+        this.currentStepIndex++;
+      }
+      this.finishResolution();
+      return;
+    }
   }
 
   // ターン解決完了後のフェーズ移行
@@ -355,13 +474,13 @@ export class GameEngine {
       this.notify();
     } else {
       this.state.phase = 'ROUND_RESULT';
-      this.state.phaseDeadline = Date.now() + 4000; // 4秒ログ確認後、次ターンへ
+      this.state.phaseDeadline = Date.now() + 2000; // 2秒ログ確認後、次ターンへ
       this.notify();
 
       this.timerId = setTimeout(() => {
         this.state.turn += 1;
-        this.startDraftPhase();
-      }, 4000);
+        this.startTurnGoldPhase();
+      }, 2000);
     }
   }
 
@@ -371,6 +490,8 @@ export class GameEngine {
     this.state.phase = 'GAME_OVER';
     this.state.winnerId = 'FORCE_QUIT';
     this.state.phaseDeadline = null;
+    this.state.activeGoldEvent = null;
+    this.state.activeDraftEvent = null;
     this.state.activeResolutionEvent = null;
     this.addLog(reason, 'system');
     this.notify();
@@ -414,18 +535,23 @@ export class GameEngine {
       myHand: myPlayer ? myPlayer.hand : [],
       draftPool: this.state.draftPool,
       winnerId: this.state.winnerId,
-      logs: this.state.logs.slice(-50), // 最新50件
+      logs: this.state.logs
+        .filter(log => !log.visibleToPlayerId || log.visibleToPlayerId === targetPlayerId)
+        .slice(-50), // 最新50件
       phaseDeadline: this.state.phaseDeadline,
+      activeGoldEvent: this.goldDistributionEvents[targetPlayerId] || null,
+      activeDraftEvent: this.state.activeDraftEvent,
       activeResolutionEvent: this.state.activeResolutionEvent,
     };
   }
 
-  private addLog(text: string, type: GameLogEntry['type']) {
+  private addLog(text: string, type: GameLogEntry['type'], visibleToPlayerId?: string) {
     this.state.logs.push({
       id: `log_${Date.now()}_${Math.random()}`,
       turn: this.state.turn,
       text,
       type,
+      ...(visibleToPlayerId ? { visibleToPlayerId } : {}),
     });
   }
 

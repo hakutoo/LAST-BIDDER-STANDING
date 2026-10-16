@@ -1,5 +1,5 @@
 import React from 'react';
-import type { PublicPlayerInfo, BattleEvent } from '../types/game';
+import type { PublicPlayerInfo, BattleEvent, GoldDistributionEvent, DraftResolutionEvent } from '../types/game';
 import { ROLE_DEFINITIONS } from '../data/roles';
 import { CARD_DEFINITIONS } from '../data/cards';
 
@@ -10,6 +10,8 @@ interface Props {
   onSelectTarget?: (targetId: string) => void;
   canSelectTarget?: boolean;
   activeEvent?: BattleEvent | null;
+  activeGoldEvent?: GoldDistributionEvent | null;
+  activeDraftEvent?: DraftResolutionEvent | null;
 }
 
 export const PlayerBoard: React.FC<Props> = ({
@@ -19,6 +21,8 @@ export const PlayerBoard: React.FC<Props> = ({
   onSelectTarget,
   canSelectTarget = false,
   activeEvent = null,
+  activeGoldEvent = null,
+  activeDraftEvent = null,
 }) => {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '16px' }}>
@@ -34,6 +38,10 @@ export const PlayerBoard: React.FC<Props> = ({
         const isTargeted = activeEvent?.targetId === p.id;
         const isHit = isTargeted && activeEvent?.damage !== undefined && activeEvent.damage > 0;
 
+        // G獲得演出・ドラフト落札演出
+        const isGettingGold = activeGoldEvent?.playerId === p.id;
+        const isDraftWinner = activeDraftEvent?.step === 'WINNER_ANNOUNCE' && activeDraftEvent?.winnerId === p.id;
+
         // 枠線の色
         let borderColor = '#334155';
         let boxShadow = 'none';
@@ -41,6 +49,12 @@ export const PlayerBoard: React.FC<Props> = ({
         if (isHit) {
           borderColor = '#ef4444';
           boxShadow = '0 0 16px rgba(239, 68, 68, 0.8)';
+        } else if (isDraftWinner) {
+          borderColor = '#facc15';
+          boxShadow = '0 0 16px rgba(250, 204, 21, 0.8)';
+        } else if (isGettingGold) {
+          borderColor = '#eab308';
+          boxShadow = '0 0 16px rgba(234, 179, 8, 0.7)';
         } else if (isTargeted) {
           borderColor = '#f87171';
           boxShadow = '0 0 14px rgba(248, 113, 113, 0.7)';
@@ -76,8 +90,46 @@ export const PlayerBoard: React.FC<Props> = ({
               overflow: 'hidden',
             }}
           >
-            {/* 行動中 / 対象バッジ */}
-            {isActing && (
+            {/* 行動中 / 対象バッジ / 給与 / 落札 */}
+            {isDraftWinner && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  backgroundColor: '#facc15',
+                  color: '#000',
+                  fontSize: '0.7em',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderBottomLeftRadius: '6px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                  zIndex: 2,
+                }}
+              >
+                👑 落札！
+              </div>
+            )}
+            {isGettingGold && !isDraftWinner && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  backgroundColor: '#eab308',
+                  color: '#000',
+                  fontSize: '0.7em',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderBottomLeftRadius: '6px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                  zIndex: 2,
+                }}
+              >
+                💰 給与
+              </div>
+            )}
+            {isActing && !isDraftWinner && !isGettingGold && (
               <div
                 style={{
                   position: 'absolute',
@@ -96,7 +148,7 @@ export const PlayerBoard: React.FC<Props> = ({
                 ⚔️ 行動中
               </div>
             )}
-            {isTargeted && !isActing && (
+            {isTargeted && !isActing && !isDraftWinner && !isGettingGold && (
               <div
                 style={{
                   position: 'absolute',
@@ -113,6 +165,56 @@ export const PlayerBoard: React.FC<Props> = ({
                 }}
               >
                 🎯 対象
+              </div>
+            )}
+
+            {/* G獲得フローティングポップアップ */}
+            {isGettingGold && activeGoldEvent && (
+              <div
+                className="floating-badge"
+                style={{
+                  position: 'absolute',
+                  top: '25%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  backgroundColor: '#facc15',
+                  color: '#000',
+                  fontWeight: '900',
+                  fontSize: '1.4em',
+                  padding: '4px 14px',
+                  borderRadius: '20px',
+                  boxShadow: '0 4px 14px rgba(250, 204, 21, 0.7)',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                +{activeGoldEvent.total} G!
+              </div>
+            )}
+
+            {/* ドラフト落札フローティングポップアップ */}
+            {isDraftWinner && activeDraftEvent && (
+              <div
+                className="floating-badge"
+                style={{
+                  position: 'absolute',
+                  top: '25%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  backgroundColor: '#facc15',
+                  color: '#000',
+                  fontWeight: '900',
+                  fontSize: '1.2em',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  boxShadow: '0 4px 14px rgba(250, 204, 21, 0.7)',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                👑 GET: {activeDraftEvent.cardName}
               </div>
             )}
 
