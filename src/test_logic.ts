@@ -6,6 +6,7 @@ import { createInitialPlayerState, applyRoleToPlayer } from './logic/playerInit'
 import { GameEngine } from './logic/gameEngine';
 import { formatCardDescription, getCardDescription, CARD_DEFINITIONS } from './data/cards';
 import { validatePlayerName, clampPlayerName, hasFullWidthChar, getNameCharLimitInfo } from './utils/nameValidator';
+import { generateRoomCode, normalizeRoomCode, toPeerRoomId, ROOM_PREFIX } from './network/roomCodeUtils';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -16,7 +17,7 @@ function assert(condition: boolean, msg: string) {
 
 console.log('=== 1. ダメージ計算テスト ===');
 
-// テスト1: 物理攻撃の基本計算 (ATK 20, DEF 5 => 15)
+// テスト1: 物理攻撃の基本計算 (ターン1: ATK 20, DEF 5 => 20 * (100 / (100 + 5 + 19)) = 16.12... => 16)
 {
   const p1 = createInitialPlayerState('p1', 'P1', false);
   const p2 = createInitialPlayerState('p2', 'P2', false);
@@ -24,13 +25,35 @@ console.log('=== 1. ダメージ計算テスト ===');
   p2.def = 5;
   p2.sld = 0;
 
-  const res = calculateDamage({
+  // ターン1 (未指定時はturn:1)
+  const res1 = calculateDamage({
     attacker: p1,
     target: p2,
     damageType: 'PHYSICAL',
     rawMultiplier: 1.0,
+    turn: 1,
   });
-  assert(res.finalDamage === 15, `物理攻撃ダメージ期待値15、実際: ${res.finalDamage}`);
+  assert(res1.finalDamage === 16, `第1ターン物理攻撃ダメージ期待値16、実際: ${res1.finalDamage}`);
+
+  // ターン20 (20 - 20 = 0 => 20 * (100 / 105) = 19.04... => 19)
+  const res20 = calculateDamage({
+    attacker: p1,
+    target: p2,
+    damageType: 'PHYSICAL',
+    rawMultiplier: 1.0,
+    turn: 20,
+  });
+  assert(res20.finalDamage === 19, `第20ターン物理攻撃ダメージ期待値19、実際: ${res20.finalDamage}`);
+
+  // ターン25 (20で打ち止めのため20ターン目と同じ 19)
+  const res25 = calculateDamage({
+    attacker: p1,
+    target: p2,
+    damageType: 'PHYSICAL',
+    rawMultiplier: 1.0,
+    turn: 25,
+  });
+  assert(res25.finalDamage === 19, `第25ターン(20で打ち止め)ダメージ期待値19、実際: ${res25.finalDamage}`);
 }
 
 // テスト2: CLTは対象にSLDがある場合は発生しない
@@ -47,29 +70,52 @@ console.log('=== 1. ダメージ計算テスト ===');
     target: p2,
     damageType: 'PHYSICAL',
     rawMultiplier: 1.0,
+    turn: 1,
   });
   assert(!res.isCritical, 'SLDが存在するためCLTは発生しない');
-  assert(res.finalDamage === 15, `SLDありダメージ期待値15 (SLD: 10, HP: 5)、実際: ${res.finalDamage}`);
+  assert(res.finalDamage === 16, `SLDありダメージ期待値16 (SLD: 10, HP: 6)、実際: ${res.finalDamage}`);
   assert(res.sldDamage === 10, 'SLDダメージ10');
-  assert(res.hpDamage === 5, 'HPダメージ5');
+  assert(res.hpDamage === 6, 'HPダメージ6');
 }
 
-// テスト3: バーサーカーの確定+3ダメージ (DEF無視加算)
+// テスト3: バーサーカーの確定ダメージ (3 + ATK 25% DEF無視加算)
 {
   const p1 = createInitialPlayerState('p1', 'P1', false);
   applyRoleToPlayer(p1, 'berserker');
   p1.atk = 10;
   const p2 = createInitialPlayerState('p2', 'P2', false);
-  p2.def = 20; // DEFがATKより大きい場合 (10 - 20 = 0 + 3 = 3)
+  p2.def = 20;
   p2.sld = 0;
 
+  // ターン1: 10 * (100 / (100 + 20 + 19)) = 7.19... + 確定5 = 12.19... => 12
   const res = calculateDamage({
     attacker: p1,
     target: p2,
     damageType: 'PHYSICAL',
     rawMultiplier: 1.0,
+    turn: 1,
   });
-  assert(res.finalDamage === 3, `バーサーカー確定3ダメージ、実際: ${res.finalDamage}`);
+  assert(res.finalDamage === 12, `バーサーカー期待値12 (基本7 + 確定5)、実際: ${res.finalDamage}`);
+}
+
+// テスト3-B: 固定値 + 参照値の攻撃値計算 (通常攻撃: 10 + ATK 50%)
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.atk = 20;
+  const p2 = createInitialPlayerState('p2', 'P2', false);
+  p2.def = 5;
+  p2.sld = 0;
+
+  // ターン1: (10 + 20 * 0.5) * (100 / (100 + 5 + 19)) = 20 * (100 / 124) = 16.12... => 16
+  const res = calculateDamage({
+    attacker: p1,
+    target: p2,
+    damageType: 'PHYSICAL',
+    baseDamage: 10,
+    rawMultiplier: 0.5,
+    turn: 1,
+  });
+  assert(res.finalDamage === 16, `固定値10+ATK50%ダメージ期待値16、実際: ${res.finalDamage}`);
 }
 
 // テスト4: メイジのスペルチャージ (1.75倍)
@@ -83,14 +129,15 @@ console.log('=== 1. ダメージ計算テスト ===');
   p2.mdf = 5;
   p2.sld = 0;
 
-  // 20 * 1.0 * 1.75 = 35 - 5 = 30
+  // ターン1: 20 * 1.0 * 1.75 = 35 * (100 / 124) = 28.22... => 28
   const res = calculateDamage({
     attacker: p1,
     target: p2,
     damageType: 'MAGIC',
     rawMultiplier: 1.0,
+    turn: 1,
   });
-  assert(res.finalDamage === 30, `スペルチャージ魔法ダメージ期待値30、実際: ${res.finalDamage}`);
+  assert(res.finalDamage === 28, `スペルチャージ魔法ダメージ期待値28、実際: ${res.finalDamage}`);
 }
 
 // テスト5: イージスのSLD存在時20%軽減
@@ -102,14 +149,15 @@ console.log('=== 1. ダメージ計算テスト ===');
   p2.def = 0;
   p2.sld = 50;
 
-  // 20 * (1 - 0.2) = 16
-  const res = calculateDamage({
+  // ターン20 (分母 100 + 0 + 0 = 100): 20 * (1 - 0.2) = 16
+  const res20 = calculateDamage({
     attacker: p1,
     target: p2,
     damageType: 'PHYSICAL',
     rawMultiplier: 1.0,
+    turn: 20,
   });
-  assert(res.finalDamage === 16, `イージス軽減ダメージ期待値16、実際: ${res.finalDamage}`);
+  assert(res20.finalDamage === 16, `イージス軽減ダメージ(ターン20)期待値16、実際: ${res20.finalDamage}`);
 }
 
 console.log('\n=== 2. G獲得計算テスト ===');
@@ -265,11 +313,11 @@ console.log('\n=== 3. ドラフト解決テスト ===');
 }
 
 console.log('\n=== 4. ターン解決・毒・サドンデステスト ===');
-// 毒ダメージ6でHPが0になったら死亡
+// 毒ダメージ (6 + 現在HPの5%) でHPが0になったら死亡
 {
   const p1 = createInitialPlayerState('p1', 'P1', false);
   applyRoleToPlayer(p1, 'berserker');
-  p1.hp = 5;
+  p1.hp = 5; // 6 + floor(5 * 0.05) = 6 ダメージでHPが0以下になり死亡
   p1.statuses.push({ type: 'poison', remainingTurns: 3 });
 
   const p2 = createInitialPlayerState('p2', 'P2', false);
@@ -279,6 +327,16 @@ console.log('\n=== 4. ターン解決・毒・サドンデステスト ===');
   const res = resolveTurn({ p1, p2 }, {}, 1);
   assert(!res.updatedPlayers['p1'].isAlive, 'P1は毒で倒れた');
   assert(res.winnerId === 'p2', 'P2が勝利');
+}
+
+// 毒ダメージの計算検証 (HP 100 の場合: 6 + 100 * 0.05 = 11 ダメージ)
+{
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.hp = 100;
+  p1.statuses.push({ type: 'poison', remainingTurns: 3 });
+
+  const res = resolveTurn({ p1 }, {}, 1);
+  assert(res.updatedPlayers['p1'].hp === 89, `毒ダメージ11でHPが100から89になる、実際: ${res.updatedPlayers['p1'].hp}`);
 }
 
 // 最後の2人が同時に倒れた場合は引き分け (DRAW)
@@ -397,7 +455,7 @@ console.log('\n=== 7. ステップバイステップ演出イベント生成テ�
   p2.def = 5;
   p2.spd = 5;
   p2.hp = 20;
-  p1.hand = [{ instanceId: 'atk1', cardId: 'normal_attack' }]; // 物理攻撃 0.5倍 (20 * 0.5 - 5 = 5)
+  p1.hand = [{ instanceId: 'atk1', cardId: 'normal_attack' }]; // ターン1: 20 * (100 / (100 + 5 + 19)) = 16
 
   const steps = buildTurnResolutionSteps(
     { p1, p2 },
@@ -416,8 +474,8 @@ console.log('\n=== 7. ステップバイステップ演出イベント生成テ�
   // 第2ステップ: ATTACK_HIT (命中・ダメージ)
   const hitStep = steps.find(s => s.event.type === 'ATTACK_HIT');
   assert(!!hitStep, 'ATTACK_HITステップが存在する');
-  assert(hitStep!.event.damage === 5, `ダメージは5、実際: ${hitStep!.event.damage}`);
-  assert(hitStep!.updatedPlayers.p2.hp === 15, `ダメージ後のp2 HPは15、実際: ${hitStep!.updatedPlayers.p2.hp}`);
+  assert(hitStep!.event.damage === 16, `ダメージは16、実際: ${hitStep!.event.damage}`);
+  assert(hitStep!.updatedPlayers.p2.hp === 4, `ダメージ後のp2 HPは4、実際: ${hitStep!.updatedPlayers.p2.hp}`);
 
   // 全ステップのログが順次記録されている
   const allLogs = steps.map(s => s.log);
@@ -430,17 +488,17 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
   const desc1 = formatCardDescription('ATKの80%の物理攻撃', { atk: 20 });
   assert(desc1 === 'ATKの80%(=16)の物理攻撃', `期待値「ATKの80%(=16)の物理攻撃」、実際: ${desc1}`);
 
-  // テスト2: 通常攻撃（ATKの50%）
+  // テスト2: 通常攻撃（10+ATKの50%）
   const desc2 = formatCardDescription(CARD_DEFINITIONS.normal_attack.description, { atk: 20 });
-  assert(desc2.includes('ATKの50%(=10)') || desc2.includes('ATKの50％(=10)'), `置換期待値「ATKの50%(=10)」、実際: ${desc2}`);
+  assert(desc2.includes('10+ATKの50%(=20)') || desc2.includes('10+ATKの50％(=20)'), `置換期待値「10+ATKの50%(=20)」、実際: ${desc2}`);
 
   // テスト3: DEF参照（リベンジ）
   const desc3 = formatCardDescription(CARD_DEFINITIONS.unique_sentinel_b.description, { def: 16 });
   assert(desc3.includes('DEFの120%(=19.2)') || desc3.includes('DEFの120％(=19.2)'), `DEF参照の置換期待値「DEFの120%(=19.2)」、実際: ${desc3}`);
 
-  // テスト4: 最大HP参照（ヘビースタンプ）
+  // テスト4: 最大HP参照（ヘビースタンプ: 12+自身の最大HPの20%）
   const desc4 = formatCardDescription(CARD_DEFINITIONS.unique_juggernaut_b.description, { maxHp: 120, hp: 120 });
-  assert(desc4.includes('最大HPの20%(=24)') || desc4.includes('最大HPの20％(=24)'), `最大HP参照の置換期待値「最大HPの20%(=24)」、実際: ${desc4}`);
+  assert(desc4.includes('12+自身の最大HPの20%(=36)') || desc4.includes('12+自身の最大HPの20％(=36)'), `最大HP参照の置換期待値「12+自身の最大HPの20%(=36)」、実際: ${desc4}`);
 
   // テスト5: 減少HP参照（リジューブ・パワー）
   const desc5 = formatCardDescription(CARD_DEFINITIONS.unique_juggernaut_a.description, { maxHp: 100, hp: 70 });
@@ -462,9 +520,9 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
   const desc9 = formatCardDescription('ATKの80%(=16)の物理攻撃', { atk: 25 });
   assert(desc9 === 'ATKの80%(=20)の物理攻撃', `再計算期待値「ATKの80%(=20)の物理攻撃」、実際: ${desc9}`);
 
-  // テスト10: getCardDescriptionヘルパーの動作確認
+  // テスト10: getCardDescriptionヘルパーの動作確認 (ヘビーブレード: 6+ATKの160%)
   const desc10 = getCardDescription(CARD_DEFINITIONS.heavy_blade, { atk: 20 });
-  assert(desc10.includes('ATKの120%(=24)') || desc10.includes('ATKの120％(=24)'), `getCardDescriptionの期待値「ATKの120%(=24)」、実際: ${desc10}`);
+  assert(desc10.includes('6+ATKの160%(=38)') || desc10.includes('6+ATKの160％(=38)'), `getCardDescriptionの期待値「6+ATKの160%(=38)」、実際: ${desc10}`);
 }
 
 console.log('\n=== 9. バグ修正検証テスト ===');
@@ -481,7 +539,7 @@ console.log('\n=== 9. バグ修正検証テスト ===');
   target.hp = 50;
   target.sld = 0;
 
-  // 期待値: ATK 15 + SLD 20 = 攻撃値35。DEF 5で軽減されて 30 ダメージ。SLDは0になる。
+  // 期待値: ATK 15 + SLD 20 = 攻撃値35。ターン1 DEF 5で軽減されて 35 * (100 / (100 + 5 + 19)) = 28 ダメージ。SLDは0になる。
   const res = resolveTurn(
     { p1: aegis, p2: target },
     { p1: { playerId: 'p1', cardInstanceId: 'sc1', targetPlayerId: 'p2' } },
@@ -492,7 +550,7 @@ console.log('\n=== 9. バグ修正検証テスト ===');
   const updatedTarget = res.updatedPlayers['p2'];
 
   assert(updatedAegis.sld === 0, `シールドクラッシュ後に自身のSLDが0になる、実際: ${updatedAegis.sld}`);
-  assert(updatedTarget.hp === 20, `ターゲットが30ダメージ受けHPが20になる(50 - 30 = 20)、実際: ${updatedTarget.hp}`);
+  assert(updatedTarget.hp === 22, `ターゲットが28ダメージ受けHPが22になる(50 - 28 = 22)、実際: ${updatedTarget.hp}`);
 }
 
 // テスト9-2: 腐食の毒薬をアンチ・マギで反射した際、攻撃者に毒が付与され、防御側には付与されないこと
@@ -762,6 +820,130 @@ console.log('\n=== 12. ドラフト結果二段階演出イベント生成テス
   assert(steps[3].event.step === 'WINNER_ANNOUNCE', 'ステップ3はWINNER_ANNOUNCE');
   assert(steps[3].event.winnerId === null, '入札なしのためwinnerIdはnull');
   assert(steps[3].event.message.includes('流札'), '流札メッセージが含まれる');
+}
+
+console.log('\n=== 13. ルームコード生成・正規化・重複防止テスト ===');
+{
+  // 6桁数字生成
+  const code = generateRoomCode();
+  assert(/^\d{6}$/.test(code), `生成されたコードは6桁の数字である: ${code}`);
+  const codeNum = parseInt(code, 10);
+  assert(codeNum >= 100000 && codeNum <= 999999, '範囲が100000〜999999の間である');
+
+  // ユニーク性確認（1000個生成して重複がほぼないこと）
+  const set = new Set<string>();
+  for (let i = 0; i < 1000; i++) {
+    set.add(generateRoomCode());
+  }
+  assert(set.size >= 995, `1000回生成して十分なユニーク性がある (ユニーク数: ${set.size})`);
+
+  // 全角数字・英字の半角化
+  assert(normalizeRoomCode('１２３４５６') === '123456', '全角数字「１２３４５６」が半角「123456」に正規化される');
+  assert(normalizeRoomCode('　５８２１９０　') === '582190', '前後の全角空白がトリムされる');
+  assert(normalizeRoomCode('ＡＢＣ１２３') === 'abc123', '全角英字が大文字から小文字半角に正規化される');
+
+  // URL貼り付け対応
+  assert(normalizeRoomCode('https://example.com/?room=482190') === '482190', 'URLクエリ ?room= からコードが抽出される');
+  assert(normalizeRoomCode('https://example.com/app?test=1&room=778899#title') === '778899', '複雑なURLから room パラメータが抽出される');
+
+  // プレフィックス除去
+  assert(normalizeRoomCode('cardgame-lbid-384920') === '384920', 'cardgame-lbid- プレフィックスが除去される');
+  assert(normalizeRoomCode('cardgame-pvp-1234') === '1234', '旧プレフィックス cardgame-pvp- も除去される');
+  assert(normalizeRoomCode('room-555555') === '555555', 'room- プレフィックスも除去される');
+
+  // PeerID 組み立て
+  assert(toPeerRoomId('582190') === `${ROOM_PREFIX}582190`, 'toPeerRoomId が正しいプレフィックス付きIDを返す');
+  assert(toPeerRoomId('https://example.com/?room=５８２１９０') === `${ROOM_PREFIX}582190`, 'URLかつ全角でも正しいPeerIDが生成される');
+}
+
+console.log('\n=== 14. 固定値+参照値 全カード網羅検証テスト ===');
+{
+  // 1. 通常攻撃: 10 + ATK 50%
+  const normalCard = CARD_DEFINITIONS.normal_attack;
+  assert(normalCard.effects[0].type === 'PHYSICAL_ATTACK' && (normalCard.effects[0] as any).baseDamage === 10 && normalCard.effects[0].multiplier === 0.5, '通常攻撃: baseDamage=10, multiplier=0.5');
+
+  // 2. ヘビースタンプ: 12 + 最大HP 20%
+  const stampCard = CARD_DEFINITIONS.unique_juggernaut_b;
+  assert(stampCard.effects[0].type === 'ADD_MAX_HP' && stampCard.effects[0].physicalAttackBaseDamage === 12 && stampCard.effects[0].physicalAttackMaxHpPercent === 0.2, 'ヘビースタンプ: baseDamage=12, maxHpPercent=0.2');
+
+  // 3. バーサーカー狂乱の刃: 3 + ATK 25% (ターン20, DEF100で基本20*100/200=10 + 確定8 = 18)
+  const bP1 = createInitialPlayerState('bp1', 'BP1', false);
+  applyRoleToPlayer(bP1, 'berserker');
+  bP1.atk = 20;
+  const bP2 = createInitialPlayerState('bp2', 'BP2', false);
+  bP2.def = 100;
+  const bDmg = calculateDamage({ attacker: bP1, target: bP2, damageType: 'PHYSICAL', rawMultiplier: 1.0, turn: 20 });
+  assert(bDmg.berserkerBonus === 8, `狂乱の刃: 確定ボーナス8、実際: ${bDmg.berserkerBonus}`);
+  assert(bDmg.finalDamage === 18, `狂乱の刃: ATK20 DEF100 ターン20で基本10+確定8=18ダメージ、実際: ${bDmg.finalDamage}`);
+
+  // 4. ツインスラッシュ: 14 + ATK 80% (2回)
+  const twinCard = CARD_DEFINITIONS.unique_berserker_a;
+  assert(twinCard.effects[0].type === 'PHYSICAL_ATTACK' && (twinCard.effects[0] as any).baseDamage === 14 && twinCard.effects[0].multiplier === 0.8 && twinCard.effects[0].hits === 2, 'ツインスラッシュ: baseDamage=14, multiplier=0.8, hits=2');
+
+  // 5. 捨身の突撃: 20 + ATK 200%
+  const rushCard = CARD_DEFINITIONS.unique_berserker_b;
+  assert(rushCard.effects[0].type === 'PHYSICAL_ATTACK' && (rushCard.effects[0] as any).baseDamage === 20 && rushCard.effects[0].multiplier === 2.0, '捨身の突撃: baseDamage=20, multiplier=2.0');
+
+  // 6. ギガフレア: 8 + MAT 180%
+  const gigaCard = CARD_DEFINITIONS.unique_mage_b;
+  assert(gigaCard.effects[0].type === 'MAGIC_ATTACK' && (gigaCard.effects[0] as any).baseDamage === 8 && gigaCard.effects[0].multiplier === 1.8, 'ギガフレア: baseDamage=8, multiplier=1.8');
+
+  // 7. アクセルビート: 13 + ATK 75%
+  const accelCard = CARD_DEFINITIONS.unique_speedstar_a;
+  assert(accelCard.effects[0].type === 'PHYSICAL_ATTACK' && (accelCard.effects[0] as any).baseDamage === 13 && accelCard.effects[0].multiplier === 0.75, 'アクセルビート: baseDamage=13, multiplier=0.75');
+
+  // 8. 暗殺のビースト: 12 + ATK 110%
+  const beastCard = CARD_DEFINITIONS.unique_assassin_a;
+  assert(beastCard.effects[1].type === 'PHYSICAL_ATTACK' && (beastCard.effects[1] as any).baseDamage === 12 && beastCard.effects[1].multiplier === 1.1, '暗殺のビースト: baseDamage=12, multiplier=1.1');
+
+  // 9. ヘビーブレード: 6 + ATK 160%
+  const heavyCard = CARD_DEFINITIONS.heavy_blade;
+  assert(heavyCard.effects[0].type === 'PHYSICAL_ATTACK' && (heavyCard.effects[0] as any).baseDamage === 6 && heavyCard.effects[0].multiplier === 1.6, 'ヘビーブレード: baseDamage=6, multiplier=1.6');
+
+  // 10. 毒蛇の牙 (毒蛇の刃): 10 + ATK 80%
+  const snakeCard = CARD_DEFINITIONS.snake_fang;
+  assert(snakeCard.effects[1].type === 'PHYSICAL_ATTACK' && (snakeCard.effects[1] as any).baseDamage === 10 && snakeCard.effects[1].multiplier === 0.8, '毒蛇の牙: baseDamage=10, multiplier=0.8');
+
+  // 11. ライトニング: 13 + MAT 100%
+  const lightCard = CARD_DEFINITIONS.lightning;
+  assert(lightCard.effects[0].type === 'MAGIC_ATTACK' && (lightCard.effects[0] as any).baseDamage === 13 && lightCard.effects[0].multiplier === 1.0, 'ライトニング: baseDamage=13, multiplier=1.0');
+
+  // 12. 救命の儀式: 7 + MAT 80%
+  const ritualCard = CARD_DEFINITIONS.life_ritual;
+  assert(ritualCard.effects[0].type === 'MAGIC_ATTACK' && (ritualCard.effects[0] as any).baseDamage === 7 && ritualCard.effects[0].multiplier === 0.8, '救命の儀式: baseDamage=7, multiplier=0.8');
+
+  // 13. 死神の烙印: 12 + MAT 60%
+  const brandCard = CARD_DEFINITIONS.death_brand;
+  assert(brandCard.effects[0].type === 'MAGIC_ATTACK' && (brandCard.effects[0] as any).baseDamage === 12 && brandCard.effects[0].multiplier === 0.6, '死神の烙印: baseDamage=12, multiplier=0.6');
+
+  // 14. 腐食の毒薬: 10 + MAT 50%
+  const poisonCard = CARD_DEFINITIONS.corrosive_poison;
+  assert(poisonCard.effects[0].type === 'MAGIC_ATTACK' && (poisonCard.effects[0] as any).baseDamage === 10 && poisonCard.effects[0].multiplier === 0.5, '腐食の毒薬: baseDamage=10, multiplier=0.5');
+
+  // 15. パリィダガー、ミラーコート 反撃: 10 + 120%
+  const parryCard = CARD_DEFINITIONS.parry_dagger;
+  assert(
+    parryCard.effects[0].type === 'PARRY_AND_REFLECT' &&
+    parryCard.effects[0].counterAttack?.baseDamage === 10 &&
+    parryCard.effects[0].counterAttack?.multiplier === 1.2,
+    'パリィダガー: counter baseDamage=10, multiplier=1.2'
+  );
+  const mirrorCard = CARD_DEFINITIONS.mirror_coat;
+  assert(
+    mirrorCard.effects[0].type === 'PARRY_AND_REFLECT' &&
+    mirrorCard.effects[0].counterAttack?.baseDamage === 10 &&
+    mirrorCard.effects[0].counterAttack?.multiplier === 1.2,
+    'ミラーコート: counter baseDamage=10, multiplier=1.2'
+  );
+
+  // 16. 毒ダメージ (HP 80 => 6 + floor(80*0.05) = 10)
+  const poisonVictim = createInitialPlayerState('pv', 'PV', false);
+  poisonVictim.hp = 80;
+  poisonVictim.statuses.push({ type: 'poison', remainingTurns: 3 });
+  const pRes = resolveTurn({ pv: poisonVictim }, {}, 1);
+  assert(pRes.updatedPlayers['pv'].hp === 70, `毒ダメージ10でHPが80から70になる、実際: ${pRes.updatedPlayers['pv'].hp}`);
+
+  console.log('✓ 16項目の固定値+参照値カード仕様が全て正常に定義・機能しています');
 }
 
 console.log('\n全テストが正常に通過しました！');

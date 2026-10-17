@@ -24,7 +24,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     id: 'berserker',
     name: 'バーサーカー',
     passiveName: '狂乱の刃',
-    passiveDescription: '自身が行う物理攻撃に3の確定ダメージを追加する。このダメージはDEFを無視して加算される。',
+    passiveDescription: '自身が行う物理攻撃に3+ATKの25%の確定ダメージを追加する。このダメージはDEFを無視して加算される。',
     passiveType: 'BERSERKER_PASSIVE',
     initialStats: {
       hp: 80,

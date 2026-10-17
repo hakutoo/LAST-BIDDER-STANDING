@@ -388,12 +388,14 @@ export const PlayerBoard: React.FC<Props> = ({
                     {p.statuses.map((st, i) => (
                       <span
                         key={i}
+                        title={st.type === 'poison' ? '毒: ターン終了時に 6+受ける人の現在HPの5% ダメージ（SLD貫通）' : '重傷: 受けるHP回復効果が半減'}
                         style={{
                           fontSize: '0.75em',
                           padding: '2px 6px',
                           borderRadius: '4px',
                           backgroundColor: st.type === 'poison' ? '#7e22ce' : '#b91c1c',
                           color: '#fff',
+                          cursor: 'help',
                         }}
                       >
                         {st.type === 'poison' ? `毒 (${st.remainingTurns}T)` : `重傷 (${st.remainingTurns}T)`}

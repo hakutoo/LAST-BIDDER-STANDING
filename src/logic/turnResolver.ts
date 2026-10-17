@@ -274,15 +274,21 @@ export function buildTurnResolutionSteps(
             baseStatOverrideAtk = actor.def;
           }
 
+          const baseDamageValue = (effect.type === 'PHYSICAL_ATTACK' || effect.type === 'CONSUME_SLD_ATTACK' || effect.type === 'MAGIC_ATTACK')
+            ? effect.baseDamage
+            : undefined;
+
           const dmgRes = calculateDamage({
             attacker: baseStatOverrideAtk !== undefined ? { ...actor, atk: baseStatOverrideAtk } : actor,
             target,
             damageType: isPhysical ? 'PHYSICAL' : 'MAGIC',
+            baseDamage: baseDamageValue,
             rawMultiplier: overrideMultiplier,
             scaleStatOverride: effect.type === 'MAGIC_ATTACK' ? effect.scaleStat : undefined,
             consumeSld: consumeSldValue,
             tempCltBonus: 0,
             sldBonusMultiplier: effect.type === 'MAGIC_ATTACK' ? effect.sldBonusMultiplier : undefined,
+            turn,
           });
 
           lastAttackResult = {
@@ -360,7 +366,9 @@ export function buildTurnResolutionSteps(
                 attacker: target,
                 target: actor,
                 damageType: dmgRes.counterAttackType,
+                baseDamage: dmgRes.counterBaseDamage,
                 rawMultiplier: dmgRes.counterMultiplier,
+                turn,
               });
 
               if (!counterDmgRes.isEvaded) {
@@ -535,14 +543,16 @@ export function buildTurnResolutionSteps(
           }
         );
 
-        // ヘビースタンプ: 最大HPの20%を攻撃値として物理攻撃
+        // ヘビースタンプ: 12 + 最大HPの20%を攻撃値として物理攻撃
         if (effect.physicalAttackMaxHpPercent && target && target.id !== actor.id && target.isAlive) {
           const stampAtk = actor.maxHp * effect.physicalAttackMaxHpPercent;
           const dmgRes = calculateDamage({
             attacker: { ...actor, atk: stampAtk },
             target,
             damageType: 'PHYSICAL',
+            baseDamage: effect.physicalAttackBaseDamage ?? 12,
             rawMultiplier: 1.0,
+            turn,
           });
 
           if (dmgRes.isEvaded) {
@@ -870,9 +880,12 @@ export function buildTurnResolutionSteps(
     if (!player.isAlive) continue;
     const poisonStatus = player.statuses.find(s => s.type === 'poison');
     if (poisonStatus) {
-      // 毒ダメージ: SLD貫通
-      player.hp = Math.max(0, player.hp - GAME_CONFIG.POISON_DAMAGE);
-      const poisonMsg = `【毒】${player.name} は毒により ${GAME_CONFIG.POISON_DAMAGE} ダメージを受けた。(残りHP: ${player.hp})`;
+      // 毒ダメージ: 6 + 現在体力の5% (SLD貫通)
+      const poisonDamage = Math.floor(
+        GAME_CONFIG.POISON_BASE_DAMAGE + player.hp * GAME_CONFIG.POISON_CURRENT_HP_RATE
+      );
+      player.hp = Math.max(0, player.hp - poisonDamage);
+      const poisonMsg = `【毒】${player.name} は毒により ${poisonDamage} ダメージを受けた。(残りHP: ${player.hp})`;
       pushStep(
         steps,
         updatedPlayers,
@@ -887,8 +900,8 @@ export function buildTurnResolutionSteps(
           type: 'POISON_DAMAGE',
           targetId: player.id,
           targetName: player.name,
-          damage: GAME_CONFIG.POISON_DAMAGE,
-          hpDamage: GAME_CONFIG.POISON_DAMAGE,
+          damage: poisonDamage,
+          hpDamage: poisonDamage,
           title: '毒ダメージ',
           description: poisonMsg,
         }

@@ -15,6 +15,7 @@ import type { DraftBid, PlayerAction } from './types/game';
 import { ROLE_DEFINITIONS } from './data/roles';
 import { CARD_DEFINITIONS } from './data/cards';
 import { clampPlayerName } from './utils/nameValidator';
+import { normalizeRoomCode } from './network/roomCodeUtils';
 
 export const App: React.FC = () => {
   const [network] = useState(() => new PeerNetworkManager());
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [reconnectingCountdown, setReconnectingCountdown] = useState<number | null>(null);
 
   // 同期されるゲームステート
   const [syncData, setSyncData] = useState<ClientSyncData | null>(null);
@@ -126,7 +128,26 @@ export const App: React.FC = () => {
 
     switch (msg.type) {
       case 'JOIN_REQUEST':
-        engine.addPlayer(clientId, msg.playerName);
+        if (!engine.state.players[clientId]) {
+          engine.addPlayer(clientId, msg.playerName);
+        } else {
+          // 既存プレイヤー（一時切断からの復帰など）に即座に同期データを送る
+          const clientSync = engine.generateClientSyncData(clientId);
+          network.sendToClient(clientId, {
+            type: 'SYNC_STATE',
+            data: clientSync,
+          });
+        }
+        break;
+      case 'RECONNECT':
+        // 再接続リクエスト受信時に即座に最新ステートを同期
+        {
+          const clientSync = engine.generateClientSyncData(clientId);
+          network.sendToClient(clientId, {
+            type: 'SYNC_STATE',
+            data: clientSync,
+          });
+        }
         break;
       case 'SET_NAME':
         engine.renamePlayer(clientId, msg.playerName);
@@ -177,54 +198,53 @@ export const App: React.FC = () => {
     setSelectedRoleId(null);
     setSelectedTargetId(null);
     setIsConnecting(false);
+    setReconnectingCountdown(null);
   };
-
-// ルームIDのプレフィックス整形（他のPeerJSアプリとのID衝突を防ぎつつ、入力のゆらぎに対応）
-const normalizeRoomCode = (raw: string): string => {
-  return raw.trim().toLowerCase().replace(/^cardgame-pvp-/, '').replace(/^room-/, '');
-};
-
-const toPeerRoomId = (code: string): string => {
-  const normalized = normalizeRoomCode(code);
-  return `cardgame-pvp-${normalized}`;
-};
 
   // 1. 部屋作成（ホスト）
   const handleCreateRoom = async (name: string) => {
     const safeName = clampPlayerName(name);
     try {
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-      const peerId = toPeerRoomId(code);
-      await network.initAsHost(
-        peerId,
+      // 重複エラーが発生しても network.initAsHost 内で自動リトライされ、確定した6桁コードが返る
+      const assignedRoomCode = await network.initAsHost(
+        undefined,
         undefined,
         (clientId, msg) => {
           onClientMessageRef.current(clientId, msg);
         },
-        (_clientId) => {
-          // 接続時
+        (clientId) => {
+          // クライアント接続・復帰時: 最新の同期データを即座に送信
+          if (engineRef.current) {
+            const clientSync = engineRef.current.generateClientSyncData(clientId);
+            network.sendToClient(clientId, {
+              type: 'SYNC_STATE',
+              data: clientSync,
+            });
+          }
         },
         (clientId) => {
+          // 15秒の猶予期間後に本当に切断された場合のみ削除
           if (engineRef.current) engineRef.current.removePlayer(clientId);
         },
-        (err) => console.error(err)
+        (err) => console.error('[Host error]', err)
       );
 
+      const peerId = network.getPeerId();
       setMyId(peerId);
       myIdRef.current = peerId;
-      setRoomCode(code);
+      setRoomCode(assignedRoomCode);
       setIsHost(true);
 
-      const engine = new GameEngine(peerId, peerId, safeName, () => {
+      const engine = new GameEngine(assignedRoomCode, peerId, safeName, () => {
         onEngineUpdateRef.current();
       });
       engineRef.current = engine;
       
       const hostSync = engine.generateClientSyncData(peerId);
       setSyncData(hostSync);
-    } catch (e) {
+    } catch (e: any) {
       console.error('ルーム作成エラー:', e);
-      alert('ルームの作成に失敗しました。別のIDで再試行してください。');
+      alert('ルームの作成に失敗しました。時間をおいて再試行してください。');
       handleBackToTitle();
     }
   };
@@ -234,23 +254,30 @@ const toPeerRoomId = (code: string): string => {
     const safeName = clampPlayerName(name);
     setIsConnecting(true);
     const normalizedCode = normalizeRoomCode(targetRoomCode);
-    const targetPeerId = toPeerRoomId(targetRoomCode);
+
     try {
-      await network.joinRoom(
-        targetPeerId,
-        handleHostMessageOnClient,
-        () => {
+      await network.joinRoom(targetRoomCode, {
+        onHostMsg: handleHostMessageOnClient,
+        onConnected: () => {
           // 接続完了時に参加リクエスト送信
           network.sendToHost({ type: 'JOIN_REQUEST', playerName: safeName });
         },
-        () => {
-          alert('ホストから切断されました。');
+        onDisconnected: () => {
+          alert('ホストとの接続が切断されました。タイトル画面に戻ります。');
           handleBackToTitle();
         },
-        (err) => {
-          console.error(err);
-        }
-      );
+        onReconnecting: (countdownSeconds) => {
+          setReconnectingCountdown(countdownSeconds);
+        },
+        onReconnected: () => {
+          setReconnectingCountdown(null);
+          // 復帰時に念のため再参加/同期リクエストを送信
+          network.sendToHost({ type: 'RECONNECT', playerId: network.getPeerId() });
+        },
+        onError: (err) => {
+          console.error('[Client network error]', err);
+        },
+      });
 
       const clientPeerId = network.getPeerId();
       setMyId(clientPeerId);
@@ -260,10 +287,11 @@ const toPeerRoomId = (code: string): string => {
       setIsConnecting(false);
     } catch (e: any) {
       console.error('参加エラー:', e);
-      const isUnavailable = e?.type === 'peer-unavailable' || (typeof e?.message === 'string' && e.message.includes('タイムアウト'));
+      const msg = typeof e?.message === 'string' ? e.message : '';
+      const isUnavailable = e?.type === 'peer-unavailable' || msg.includes('タイムアウト') || msg.includes('見つかりません');
       alert(isUnavailable
-        ? '指定されたルームIDが見つかりませんでした。ルームIDを確認してください。'
-        : '部屋への参加に失敗しました。ルームIDを確認してください。');
+        ? '指定されたルームIDが見つかりませんでした。番号が正しいか、ホストが部屋を開いているか確認してください。'
+        : '部屋への参加に失敗しました。通信環境を確認のうえ再試行してください。');
       handleBackToTitle();
     }
   };
@@ -362,6 +390,73 @@ const toPeerRoomId = (code: string): string => {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', color: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+      {/* ホスト一時切断時の再接続待機オーバーレイ */}
+      {reconnectingCountdown !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            backgroundColor: '#1e293b',
+            border: '2px solid #eab308',
+            borderRadius: '12px',
+            padding: '28px',
+            maxWidth: '460px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+          }}>
+            <div style={{ fontSize: '2.4em', marginBottom: '12px' }}>🔄</div>
+            <h3 style={{ margin: '0 0 10px 0', color: '#facc15', fontSize: '1.25em' }}>
+              ホストとの接続を再確立中...
+            </h3>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9em', lineHeight: '1.6', margin: '0 0 16px 0' }}>
+              ホストが別アプリを開いているか、通信環境が一時的に不安定です。<br />
+              自動で再接続を試行しています。このままお待ちください...
+            </p>
+            <div style={{
+              display: 'inline-block',
+              backgroundColor: '#0f172a',
+              border: '1px solid #334155',
+              padding: '8px 18px',
+              borderRadius: '20px',
+              color: '#38bdf8',
+              fontWeight: 'bold',
+              fontSize: '1em',
+              marginBottom: '20px',
+            }}>
+              残り時間: {reconnectingCountdown} 秒
+            </div>
+            <div>
+              <button
+                onClick={handleBackToTitle}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  backgroundColor: '#475569',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.85em',
+                }}
+              >
+                待機をやめてタイトルに戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 入室前・ロビー・ロール選択 */}
       {(!syncData || currentPhase === 'LOBBY' || currentPhase === 'ROLE_SELECT') ? (
         <LobbyView

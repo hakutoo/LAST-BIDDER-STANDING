@@ -19,7 +19,10 @@ export type ClientMessage =
   | { type: 'START_GAME' }
   | { type: 'SUBMIT_DRAFT_BID'; bid: DraftBid }
   | { type: 'SUBMIT_ACTION'; action: PlayerAction }
-  | { type: 'SKIP_RESOLUTION' };
+  | { type: 'SKIP_RESOLUTION' }
+  | { type: 'PING' }
+  | { type: 'PONG' }
+  | { type: 'RECONNECT'; playerId: string };
 
 // ホスト -> クライアント
 export interface ClientSyncData {
@@ -44,7 +47,10 @@ export interface ClientSyncData {
 export type HostMessage = 
   | { type: 'SYNC_STATE'; data: ClientSyncData }
   | { type: 'JOIN_ACCEPTED'; yourId: string }
-  | { type: 'ERROR'; message: string };
+  | { type: 'ERROR'; message: string }
+  | { type: 'PING' }
+  | { type: 'PONG' }
+  | { type: 'RECONNECT_ACK' };
 
 export type NetworkMessage = 
   | ({ from: 'CLIENT' } & ClientMessage)

@@ -9,9 +9,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'NORMAL',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'ATKの50%を攻撃値とした物理攻撃を行う。使用後は消費される。',
+    description: '10+ATKの50%を攻撃値とした物理攻撃を行う。使用後は消費される。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', multiplier: 0.5 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 0.5 },
     ],
   },
   heal_powder: {
@@ -44,9 +44,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_B',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: '自身の最大HPを15増加させ同値回復。その後対象に自身の最大HPの20%の物理攻撃を行う。',
+    description: '自身の最大HPを15増加させ同値回復。その後対象に12+自身の最大HPの20%の物理攻撃を行う。',
     effects: [
-      { type: 'ADD_MAX_HP', amount: 15, physicalAttackMaxHpPercent: 0.2 },
+      { type: 'ADD_MAX_HP', amount: 15, physicalAttackBaseDamage: 12, physicalAttackMaxHpPercent: 0.2 },
     ],
   },
 
@@ -57,9 +57,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'ATKの70%を攻撃値とした物理攻撃を2回行う。',
+    description: '14+ATKの80%を攻撃値とした物理攻撃を2回行う。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', multiplier: 0.7, hits: 2 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 14, multiplier: 0.8, hits: 2 },
     ],
   },
   unique_berserker_b: {
@@ -68,9 +68,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_B',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'ATKの150%を攻撃値とした物理攻撃を行う。攻撃判定終了後、自身は10ダメージを受ける。',
+    description: '20+ATKの200%を攻撃値とした物理攻撃を行う。攻撃判定終了後、自身は10ダメージを受ける。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', multiplier: 1.5 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 20, multiplier: 2.0 },
       { type: 'SELF_DAMAGE', amount: 10 },
     ],
   },
@@ -117,9 +117,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_B',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'MATの130%を攻撃値とした魔法攻撃を行う。',
+    description: '8+MATの180%を攻撃値とした魔法攻撃を行う。',
     effects: [
-      { type: 'MAGIC_ATTACK', multiplier: 1.3, scaleStat: 'MAT' },
+      { type: 'MAGIC_ATTACK', baseDamage: 8, multiplier: 1.8, scaleStat: 'MAT' },
     ],
   },
 
@@ -155,9 +155,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'HIGH',
     targetType: 'SINGLE_ENEMY',
-    description: 'ATKの75%を攻撃値とした物理攻撃を行う。パッシブにより2回発動。',
+    description: '13+ATKの75%を攻撃値とした物理攻撃を行う。パッシブにより2回発動。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', multiplier: 0.75 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 13, multiplier: 0.75 },
     ],
   },
   unique_speedstar_b: {
@@ -180,10 +180,10 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: '自身のCLTを30%増加させた状態で、ATKの100%を攻撃値とした物理攻撃を行う。',
+    description: '自身のCLTを30%増加させた状態で、12+ATKの110%を攻撃値とした物理攻撃を行う。',
     effects: [
       { type: 'TEMP_CLT_BUFF', amount: 30 },
-      { type: 'PHYSICAL_ATTACK', multiplier: 1.0 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 12, multiplier: 1.1 },
     ],
   },
   unique_assassin_b: {
@@ -476,9 +476,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'ATKの120%を攻撃値とした物理攻撃を行う。',
+    description: '6+ATKの160%を攻撃値とした物理攻撃を行う。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', multiplier: 1.2 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 6, multiplier: 1.6 },
     ],
   },
   snake_fang: {
@@ -487,10 +487,10 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: '対象のSLDを0にする。その後、ATKの80%を攻撃値とした物理攻撃を行う。',
+    description: '対象のSLDを0にする。その後、10+ATKの80%を攻撃値とした物理攻撃を行う。',
     effects: [
       { type: 'CLEAR_TARGET_SLD' },
-      { type: 'PHYSICAL_ATTACK', multiplier: 0.8 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 0.8 },
     ],
   },
   lightning: {
@@ -499,9 +499,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'MATの100%を攻撃値とした魔法攻撃を行う。対象にSLDが存在する場合、最終ダメージを1.5倍にする。',
+    description: '13+MATの100%を攻撃値とした魔法攻撃を行う。対象にSLDが存在する場合、最終ダメージを1.5倍にする。',
     effects: [
-      { type: 'MAGIC_ATTACK', multiplier: 1.0, scaleStat: 'MAT', sldBonusMultiplier: 1.5 },
+      { type: 'MAGIC_ATTACK', baseDamage: 13, multiplier: 1.0, scaleStat: 'MAT', sldBonusMultiplier: 1.5 },
     ],
   },
   life_ritual: {
@@ -510,9 +510,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'MATの80%を攻撃値とした魔法攻撃を行う。対象に与えた最終ダメージの100%だけ自身のHPを回復する。',
+    description: '7+MATの80%を攻撃値とした魔法攻撃を行う。対象に与えた最終ダメージの100%だけ自身のHPを回復する。',
     effects: [
-      { type: 'MAGIC_ATTACK', multiplier: 0.8, scaleStat: 'MAT', drainPercent: 100 },
+      { type: 'MAGIC_ATTACK', baseDamage: 7, multiplier: 0.8, scaleStat: 'MAT', drainPercent: 100 },
     ],
   },
   iron_wall: {
@@ -545,9 +545,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'MATの50%を攻撃値とした魔法攻撃を行う。対象に重傷を付与する（3ターン）。',
+    description: '12+MATの60%を攻撃値とした魔法攻撃を行う。対象に重傷を付与する（3ターン）。',
     effects: [
-      { type: 'MAGIC_ATTACK', multiplier: 0.5, scaleStat: 'MAT' },
+      { type: 'MAGIC_ATTACK', baseDamage: 12, multiplier: 0.6, scaleStat: 'MAT' },
       { type: 'APPLY_STATUS', status: 'heavy_wound', duration: 3 },
     ],
   },
@@ -568,9 +568,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'ACTIVE',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: 'MATの50%を攻撃値とした魔法攻撃を行う。対象に毒を付与する（3ターン）。',
+    description: '10+MATの50%を攻撃値とした魔法攻撃を行う。対象に毒を付与する（3ターン）。',
     effects: [
-      { type: 'MAGIC_ATTACK', multiplier: 0.5, scaleStat: 'MAT' },
+      { type: 'MAGIC_ATTACK', baseDamage: 10, multiplier: 0.5, scaleStat: 'MAT' },
       { type: 'APPLY_STATUS', status: 'poison', duration: 3 },
     ],
   },
@@ -582,14 +582,14 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'COUNTER',
     priority: 'HIGH',
     targetType: 'SELF',
-    description: 'このターン中、自身への物理攻撃を無効化する。無効化成功時、ATKの100%の物理攻撃で反撃する。',
+    description: 'このターン中、自身への物理攻撃を無効化する。無効化成功時、10+ATKの120%の物理攻撃で反撃する。',
     effects: [
       {
         type: 'PARRY_AND_REFLECT',
         damageType: 'PHYSICAL',
         reduceRate: 1.0,
         reflectRate: 0,
-        counterAttack: { type: 'PHYSICAL', multiplier: 1.0 },
+        counterAttack: { type: 'PHYSICAL', baseDamage: 10, multiplier: 1.2 },
       },
     ],
   },
@@ -599,14 +599,14 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'COUNTER',
     priority: 'HIGH',
     targetType: 'SELF',
-    description: 'このターン中、自身への魔法攻撃を無効化する。無効化成功時、MATの100%の魔法攻撃で反撃する。',
+    description: 'このターン中、自身への魔法攻撃を無効化する。無効化成功時、10+MATの120%の魔法攻撃で反撃する。',
     effects: [
       {
         type: 'PARRY_AND_REFLECT',
         damageType: 'MAGIC',
         reduceRate: 1.0,
         reflectRate: 0,
-        counterAttack: { type: 'MAGIC', multiplier: 1.0 },
+        counterAttack: { type: 'MAGIC', baseDamage: 10, multiplier: 1.2 },
       },
     ],
   },
@@ -651,8 +651,8 @@ export function formatCardDescription(
   const clean = description.replace(/[(\(]=[0-9.]+[)\)]/g, '');
   if (!stats) return clean;
 
-  const regex = /(自身の)?(最大HP|減少HP|ATK|DEF|MAT|MDF|SPD|CLT|SLD|HP)の(\d+(?:\.\d+)?)([%％])/g;
-  return clean.replace(regex, (match, prefix, stat, percent, symbol) => {
+  const regex = /(\d+(?:\.\d+)?\s*\+\s*)?(自身の)?(最大HP|減少HP|ATK|DEF|MAT|MDF|SPD|CLT|SLD|HP)の?(\d+(?:\.\d+)?)([%％])/g;
+  return clean.replace(regex, (match, fixedPart, prefix, stat, percent, symbol) => {
     let baseValue: number | undefined;
     switch (stat) {
       case 'ATK':
@@ -696,9 +696,10 @@ export function formatCardDescription(
       return match;
     }
 
-    const calculated = baseValue * (parseFloat(percent) / 100);
+    const fixedNum = fixedPart ? parseFloat(fixedPart.replace('+', '').trim()) : 0;
+    const calculated = fixedNum + baseValue * (parseFloat(percent) / 100);
     const rounded = Math.round(calculated * 100) / 100;
-    return `${prefix ?? ''}${stat}の${percent}${symbol}(=${rounded})`;
+    return `${fixedPart ?? ''}${prefix ?? ''}${stat}の${percent}${symbol}(=${rounded})`;
   });
 }
 

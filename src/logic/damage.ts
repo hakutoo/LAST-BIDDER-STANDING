@@ -5,11 +5,13 @@ export interface AttackContext {
   attacker: PlayerState;
   target: PlayerState;
   damageType: 'PHYSICAL' | 'MAGIC';
+  baseDamage?: number; // 固定値 (例: 10)
   rawMultiplier: number;
   scaleStatOverride?: 'MAT' | 'MDF';
   consumeSld?: number; // シールドクラッシュ用
   tempCltBonus?: number; // 暗殺のビースト用
   sldBonusMultiplier?: number; // ライトニング用 (対象にSLDがあれば1.5倍)
+  turn?: number; // ターン数 (防御補正計算用)
 }
 
 export interface DamageResult {
@@ -23,6 +25,7 @@ export interface DamageResult {
   hpDamage: number;
   reflectedDamage: number;
   counterAttackType?: 'PHYSICAL' | 'MAGIC';
+  counterBaseDamage?: number;
   counterMultiplier?: number;
   berserkerBonus: number;
   spellChargeUsed: boolean;
@@ -30,7 +33,7 @@ export interface DamageResult {
 }
 
 export function calculateDamage(ctx: AttackContext): DamageResult {
-  const { attacker, target, damageType, rawMultiplier, scaleStatOverride, consumeSld, tempCltBonus, sldBonusMultiplier } = ctx;
+  const { attacker, target, damageType, baseDamage, rawMultiplier, scaleStatOverride, consumeSld, tempCltBonus, sldBonusMultiplier, turn } = ctx;
 
   const result: DamageResult = {
     isEvaded: false,
@@ -62,19 +65,21 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
   const antiMagiBuff = target.buffs.find(b => b.type === 'ANTI_MAGI');
   const parryStanceBuff = target.buffs.find(b => b.type === 'PARRY_STANCE');
 
-  // パリィダガー (物理完全無効化＆反撃)
+  // パリィダガー (物理完全無効化＆反撃: 10 + ATK120%)
   if (damageType === 'PHYSICAL' && parryDaggerBuff) {
     result.isParried = true;
     result.counterAttackType = 'PHYSICAL';
-    result.counterMultiplier = 1.0;
+    result.counterBaseDamage = 10;
+    result.counterMultiplier = 1.2;
     return result;
   }
 
-  // ミラーコート (魔法完全無効化＆反撃)
+  // ミラーコート (魔法完全無効化＆反撃: 10 + MAT120%)
   if (damageType === 'MAGIC' && mirrorCoatBuff) {
     result.isParried = true;
     result.counterAttackType = 'MAGIC';
-    result.counterMultiplier = 1.0;
+    result.counterBaseDamage = 10;
+    result.counterMultiplier = 1.2;
     return result;
   }
 
@@ -86,17 +91,19 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     baseStat = scaleStatOverride === 'MDF' ? attacker.mdf : attacker.mat;
   }
 
-  // 1. カード効果による倍率を計算する
+  // 1. カード効果による倍率と固定値を計算する
   let currentMultiplier = rawMultiplier;
+  let currentBaseDamage = baseDamage ?? 0;
 
   // メイジのパッシブ「スペルチャージ」チェック (魔法攻撃かつスペルチャージバフあり)
   const spellChargeBuff = attacker.buffs.find(b => b.type === 'SPELL_CHARGE');
   if (damageType === 'MAGIC' && spellChargeBuff) {
     currentMultiplier *= GAME_CONFIG.MAGE_SPELL_CHARGE_MULTIPLIER;
+    currentBaseDamage *= GAME_CONFIG.MAGE_SPELL_CHARGE_MULTIPLIER;
     result.spellChargeUsed = true;
   }
 
-  let attackValue = baseStat * currentMultiplier;
+  let attackValue = currentBaseDamage + (baseStat * currentMultiplier);
 
   // シールドクラッシュの場合、消費したSLDを加算
   if (consumeSld && consumeSld > 0) {
@@ -118,19 +125,28 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
   result.initialAttackValue = attackValue;
 
   // 3. 攻撃値を決定する。
-  // 4. DEFまたはMDFによる軽減を行う。
-  let damageAfterDefense;
+  // 4. DEFまたはMDFによる軽減を行う (100 / (100 + (DEForMDF) + (20 - (ターン数)))) ※ターン数は20で打ち止め。
+  const currentTurn = turn !== undefined ? turn : 1;
+  const effectiveTurn = Math.min(20, Math.max(1, currentTurn));
+  const turnMod = 20 - effectiveTurn;
+
+  let damageAfterDefense: number;
   if (damageType === 'PHYSICAL') {
-    damageAfterDefense = Math.max(0, attackValue - target.def);
+    const defense = Math.max(0, target.def);
+    damageAfterDefense = attackValue * (100 / (100 + defense + turnMod));
   } else {
-    damageAfterDefense = Math.max(0, attackValue - target.mdf);
+    const mdf = Math.max(0, target.mdf);
+    damageAfterDefense = attackValue * (100 / (100 + mdf + turnMod));
   }
 
   // 5. パッシブ効果によるダメージの増減を適用する。
-  // バーサーカー「狂乱の刃」: 物理攻撃に3の確定ダメージ（DEF無視）
+  // バーサーカー「狂乱の刃」: 物理攻撃に3+ATK25%の確定ダメージ（DEF無視）
   if (damageType === 'PHYSICAL' && attacker.roleId === 'berserker') {
-    damageAfterDefense += GAME_CONFIG.BERSERKER_FIXED_DAMAGE;
-    result.berserkerBonus = GAME_CONFIG.BERSERKER_FIXED_DAMAGE;
+    const berserkerBonus = Math.floor(
+      GAME_CONFIG.BERSERKER_FIXED_DAMAGE + attacker.atk * GAME_CONFIG.BERSERKER_ATK_RATE
+    );
+    damageAfterDefense += berserkerBonus;
+    result.berserkerBonus = berserkerBonus;
   }
 
   // 6. ダメージ軽減効果を適用する。

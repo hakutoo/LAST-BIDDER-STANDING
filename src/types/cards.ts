@@ -18,16 +18,19 @@ export type TargetType = 'SINGLE_ENEMY' | 'SELF' | 'NONE';
 export type CardEffect = 
   | {
       type: 'PHYSICAL_ATTACK';
+      baseDamage?: number; // 攻撃固定値 (例: 通常攻撃 10)
       multiplier: number; // ATK * multiplier
       hits?: number; // 攻撃回数 (例: ツインスラッシュ=2)
       consumeSldRate?: number; // シールドクラッシュ用: 消費したSLDの加算
     }
   | {
       type: 'CONSUME_SLD_ATTACK';
+      baseDamage?: number;
       multiplier: number;
     }
   | {
       type: 'MAGIC_ATTACK';
+      baseDamage?: number; // 魔法攻撃固定値
       multiplier: number; // MAT * multiplier (スペルドレインは MDF)
       scaleStat?: 'MAT' | 'MDF';
       sldBonusMultiplier?: number; // 相手にSLDがある場合最終ダメージ倍率 (例: ライトニング 1.5)
@@ -41,6 +44,7 @@ export type CardEffect =
   | {
       type: 'ADD_MAX_HP';
       amount: number; // 最大HP増加（同値現在HP回復）
+      physicalAttackBaseDamage?: number; // ヘビースタンプ: 固定攻撃値 12
       physicalAttackMaxHpPercent?: number; // ヘビースタンプ: 最大HPの20%を物理攻撃値として対象攻撃
     }
   | {
@@ -74,7 +78,8 @@ export type CardEffect =
       reflectRate: number; // 軽減/無効化分の何%を攻撃者に反射するか (1.0 or 0.5)
       counterAttack?: {
         type: 'PHYSICAL' | 'MAGIC';
-        multiplier: number; // ATK 100% または MAT 100%
+        baseDamage?: number; // 反撃固定値 10
+        multiplier: number; // ATK 120% または MAT 120%
       };
     }
   | {

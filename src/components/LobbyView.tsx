@@ -3,6 +3,7 @@ import type { PublicPlayerInfo, GamePhase } from '../types/game';
 import { ROLE_DEFINITIONS } from '../data/roles';
 import { CARD_DEFINITIONS, formatCardDescription } from '../data/cards';
 import { validatePlayerName, getNameCharLimitInfo } from '../utils/nameValidator';
+import { normalizeRoomCode } from '../network/roomCodeUtils';
 
 interface Props {
   phase: GamePhase;
@@ -51,7 +52,7 @@ export const LobbyView: React.FC<Props> = ({
       const params = new URLSearchParams(window.location.search);
       const roomParam = params.get('room');
       if (roomParam) {
-        setInputRoomCode(roomParam.trim());
+        setInputRoomCode(normalizeRoomCode(roomParam));
       }
     }
   }, []);
@@ -178,11 +179,11 @@ export const LobbyView: React.FC<Props> = ({
 
                 <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
                   <label style={{ display: 'block', fontSize: '0.85em', color: '#94a3b8', marginBottom: '6px' }}>
-                    招待されたルームID（4桁の数字など）:
+                    招待されたルームID（6桁の数字 または 招待URL）:
                   </label>
                   <input
                     type="text"
-                    placeholder="例: 4821"
+                    placeholder="例: 582190 または 招待URLを貼り付け"
                     value={inputRoomCode}
                     onChange={(e) => setInputRoomCode(e.target.value)}
                     style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', marginBottom: '10px', fontSize: '1em' }}
@@ -193,8 +194,9 @@ export const LobbyView: React.FC<Props> = ({
                       if (!validation.valid) {
                         return alert(validation.reason || '名前を入力してください');
                       }
-                      if (!inputRoomCode.trim()) return alert('ルームIDを入力してください');
-                      onJoinRoom(inputRoomCode.trim(), inputName.trim());
+                      const normalized = normalizeRoomCode(inputRoomCode);
+                      if (!normalized) return alert('ルームIDまたは招待URLを入力してください');
+                      onJoinRoom(normalized, inputName.trim());
                     }}
                     style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95em' }}
                   >
@@ -209,9 +211,12 @@ export const LobbyView: React.FC<Props> = ({
         {/* 初心者向け手順ガイド */}
         <div style={{ marginTop: '20px', padding: '12px 14px', backgroundColor: '#0f172a', borderRadius: '6px', border: '1px solid #1e3a8a', fontSize: '0.82em', color: '#94a3b8', lineHeight: '1.6' }}>
           <b style={{ color: '#60a5fa', display: 'block', marginBottom: '4px' }}>💡 オンライン対戦の手順:</b>
-          1. 1人目のプレイヤーが「新しい部屋を作成」を押します<br />
-          2. 待機室に表示される「招待URLをコピー」を友達にLINEやDiscordで送ります<br />
-          3. 友達がそのURLを開いて「部屋に参加する」を押せばマッチング完了です！
+          1. 1人目のプレイヤーが「新しい部屋を作成」を押します（ホストになります）<br />
+          2. 待機室に表示される「招待リンクをコピー」または「6桁ID」を友達にLINEやDiscordで送ります<br />
+          3. 友達がそのURLを開くか、IDを入力して「部屋に参加する」を押せばマッチング完了です！<br />
+          <span style={{ color: '#4ade80', fontSize: '0.95em', display: 'inline-block', marginTop: '4px' }}>
+            ✓ ホストがURL共有のために別アプリを開いても部屋は維持されます。
+          </span>
         </div>
       </div>
     );
@@ -257,6 +262,9 @@ export const LobbyView: React.FC<Props> = ({
               >
                 🔗 招待リンクをコピー
               </button>
+            </div>
+            <div style={{ marginTop: '4px', fontSize: '0.78em', color: '#94a3b8' }}>
+              💡 別アプリを開いて招待リンクを送っても接続は維持されます
             </div>
             {copyNotice && (
               <div style={{ marginTop: '4px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>

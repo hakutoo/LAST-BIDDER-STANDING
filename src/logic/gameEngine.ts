@@ -181,10 +181,10 @@ export class GameEngine {
     this.goldDistributionEvents = goldEvents;
     this.notify();
 
-    // 2000ms 表示後、ドラフトフェーズへ移行
+    // 1200ms 表示後、ドラフトフェーズへ移行
     this.timerId = setTimeout(() => {
       this.startDraftPhase();
-    }, 2000);
+    }, 1200);
   }
 
   // ドラフトフェーズ開始
@@ -286,8 +286,8 @@ export class GameEngine {
     }
     this.state.activeDraftEvent = step.event;
 
-    // 表示時間: 段階1（開示）は2000ms、段階2（落札確定＆獲得メッセージ）は2000ms
-    const delay = step.event.step === 'BIDS_REVEAL' ? 2000 : 2000;
+    // 表示時間: 段階1（開示）は1200ms、段階2（落札確定＆獲得メッセージ）は1200ms
+    const delay = step.event.step === 'BIDS_REVEAL' ? 1200 : 1200;
 
     this.notify();
 
@@ -398,19 +398,19 @@ export class GameEngine {
     this.state.winnerId = step.winnerId;
 
     // イベントタイプに応じた表示待機時間 (ms)
-    let delay = 2000;
+    let delay = 1200;
     if (step.event.type === 'ACTION_START') {
-      delay = 2000;
+      delay = 1200;
     } else if (step.event.type === 'ATTACK_HIT') {
-      delay = step.event.isCritical ? 2000 : 2000;
+      delay = step.event.isCritical ? 1200 : 1200;
     } else if (step.event.type === 'ACTION_WAIT') {
-      delay = 1500;
+      delay = 1000;
     } else if (step.event.type === 'EFFECT_EXPIRED') {
-      delay = 1500;
+      delay = 1000;
     } else if (step.event.type === 'DEATH') {
-      delay = 2000;
+      delay = 1200;
     } else if (step.event.type === 'POISON_DAMAGE') {
-      delay = 1500;
+      delay = 1000;
     }
 
     this.notify();
@@ -474,13 +474,13 @@ export class GameEngine {
       this.notify();
     } else {
       this.state.phase = 'ROUND_RESULT';
-      this.state.phaseDeadline = Date.now() + 2000; // 2秒ログ確認後、次ターンへ
+      this.state.phaseDeadline = Date.now() + 1200; // 1.2秒ログ確認後、次ターンへ
       this.notify();
 
       this.timerId = setTimeout(() => {
         this.state.turn += 1;
         this.startTurnGoldPhase();
-      }, 2000);
+      }, 1200);
     }
   }
 
