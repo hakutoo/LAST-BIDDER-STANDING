@@ -28,4 +28,9 @@ export interface RoleDefinition {
   initialStats: InitialStats;
   uniqueCardAId: string;
   uniqueCardBId: string;
+  /** キャラクターごとのユニークカード購入価格（G）。全ロールで個別に設定する。 */
+  uniqueCardPrices: {
+    a: number;
+    b: number;
+  };
 }

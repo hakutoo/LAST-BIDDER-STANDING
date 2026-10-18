@@ -104,4 +104,10 @@ export interface CardDefinition {
     stat: StatKey;
     amount: number;
   };
+  /**
+   * ユニークカード購入価格（G）。
+   * 設定した場合はグローバルデフォルト（UNIQUE_CARD_A/B_PRICE）より優先される。
+   * UNIQUE_A / UNIQUE_B カード以外には無効。
+   */
+  price?: number;
 }

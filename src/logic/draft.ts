@@ -1,6 +1,7 @@
 import type { CardDefinition } from '../types/cards';
 import type { DraftCard, DraftBid, PlayerState, GameLogEntry } from '../types/game';
 import { CARD_DEFINITIONS } from '../data/cards';
+import { ROLE_DEFINITIONS } from '../data/roles';
 import { DRAFT_CATEGORY_POOLS, getDraftWeights } from '../data/draftProbabilities';
 import { GAME_CONFIG } from '../data/constants';
 
@@ -50,15 +51,31 @@ export interface DraftResolutionStep {
 }
 
 // ユニークカードの価格取得
-export function getUniqueCardPrice(cardId: string): number {
+// 優先順位: カード固有価格（CardDefinition.price）> ロール定義価格（RoleDefinition.uniqueCardPrices）
+export function getUniqueCardPrice(cardId: string, roleId?: string): number {
   const def = CARD_DEFINITIONS[cardId];
   if (!def) return 0;
+
   if (def.category === 'UNIQUE_A') {
-    return GAME_CONFIG.UNIQUE_CARD_A_PRICE;
+    // カード固有価格が設定されていればそちらを優先
+    if (def.price !== undefined) return def.price;
+    // ロール定義の価格
+    if (roleId) {
+      const roleDef = ROLE_DEFINITIONS[roleId];
+      if (roleDef) return roleDef.uniqueCardPrices.a;
+    }
   }
+
   if (def.category === 'UNIQUE_B') {
-    return GAME_CONFIG.UNIQUE_CARD_B_PRICE;
+    // カード固有価格が設定されていればそちらを優先
+    if (def.price !== undefined) return def.price;
+    // ロール定義の価格
+    if (roleId) {
+      const roleDef = ROLE_DEFINITIONS[roleId];
+      if (roleDef) return roleDef.uniqueCardPrices.b;
+    }
   }
+
   return 0;
 }
 
@@ -87,7 +104,7 @@ export function buildDraftResolutionSteps(
       for (const cardId of playerBidObj.uniquePurchases) {
         const cardDef = CARD_DEFINITIONS[cardId];
         if (!cardDef) continue;
-        const price = getUniqueCardPrice(cardId);
+        const price = getUniqueCardPrice(cardId, player.roleId);
         if (player.g >= price) {
           player.g -= price;
           const instanceId = `unique_buy_${turn}_${player.id}_${Math.random().toString(36).substring(2, 8)}`;

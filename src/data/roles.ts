@@ -19,6 +19,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_juggernaut_a',
     uniqueCardBId: 'unique_juggernaut_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   berserker: {
     id: 'berserker',
@@ -38,6 +39,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_berserker_a',
     uniqueCardBId: 'unique_berserker_b',
+    uniqueCardPrices: { a: 20, b: 25 },
   },
   sentinel: {
     id: 'sentinel',
@@ -57,6 +59,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_sentinel_a',
     uniqueCardBId: 'unique_sentinel_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   mage: {
     id: 'mage',
@@ -76,6 +79,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_mage_a',
     uniqueCardBId: 'unique_mage_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   inquisitor: {
     id: 'inquisitor',
@@ -95,6 +99,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_inquisitor_a',
     uniqueCardBId: 'unique_inquisitor_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   speedstar: {
     id: 'speedstar',
@@ -114,6 +119,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_speedstar_a',
     uniqueCardBId: 'unique_speedstar_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   assassin: {
     id: 'assassin',
@@ -133,6 +139,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_assassin_a',
     uniqueCardBId: 'unique_assassin_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
   aegis: {
     id: 'aegis',
@@ -152,5 +159,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_aegis_a',
     uniqueCardBId: 'unique_aegis_b',
+    uniqueCardPrices: { a: 18, b: 25 },
   },
 };
+

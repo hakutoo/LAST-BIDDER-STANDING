@@ -42,7 +42,5 @@ export const GAME_CONFIG = {
   JUGGERNAUT_BID_MULTIPLIER: 1.25,
   JUGGERNAUT_HEAL_MULTIPLIER: 1.2,
 
-  // ユニークカード価格
-  UNIQUE_CARD_A_PRICE: 18,
-  UNIQUE_CARD_B_PRICE: 25,
+  // ユニークカード価格はロールごとに roles.ts で個別管理
 };

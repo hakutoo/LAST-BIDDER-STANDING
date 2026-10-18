@@ -118,7 +118,7 @@ export const DraftView: React.FC<Props> = ({
 
   const totalBid = Object.values(bids).reduce((sum, val) => sum + (val || 0), 0);
   const totalShopCost = Object.entries(uniquePurchases).reduce((sum, [cardId, count]) => {
-    return sum + getUniqueCardPrice(cardId) * count;
+    return sum + getUniqueCardPrice(cardId, roleId) * count;
   }, 0);
   const totalExpense = totalBid + totalShopCost;
   const remainingG = myG - totalExpense;
@@ -146,7 +146,7 @@ export const DraftView: React.FC<Props> = ({
     const newCount = currentCount + delta;
     if (newCount < 0) return;
 
-    const price = getUniqueCardPrice(cardId);
+    const price = getUniqueCardPrice(cardId, roleId);
     if (delta > 0 && remainingG < price) {
       return; // 所持G不足
     }
@@ -219,7 +219,7 @@ export const DraftView: React.FC<Props> = ({
                 {uniqueCardIds.map((cardId) => {
                   const def = CARD_DEFINITIONS[cardId];
                   if (!def) return null;
-                  const price = getUniqueCardPrice(cardId);
+                  const price = getUniqueCardPrice(cardId, roleId);
                   const count = uniquePurchases[cardId] || 0;
                   const isUniqueA = def.category === 'UNIQUE_A';
                   const canBuy = remainingG >= price;
