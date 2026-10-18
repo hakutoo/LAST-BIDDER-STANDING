@@ -57,7 +57,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: '14+ATKの80%を攻撃値とした物理攻撃を2回行う。',
+    description: '10+ATKの70%を攻撃値とした物理攻撃を2回行う。',
     effects: [
       { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 0.7, hits: 2 },
     ],
