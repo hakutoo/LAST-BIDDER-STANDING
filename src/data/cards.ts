@@ -59,7 +59,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     targetType: 'SINGLE_ENEMY',
     description: '14+ATKの80%を攻撃値とした物理攻撃を2回行う。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', baseDamage: 14, multiplier: 0.8, hits: 2 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 0.7, hits: 2 },
     ],
   },
   unique_berserker_b: {
