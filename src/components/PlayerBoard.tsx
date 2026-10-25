@@ -1,7 +1,6 @@
 import React from 'react';
 import type { PublicPlayerInfo, BattleEvent, GoldDistributionEvent, DraftResolutionEvent } from '../types/game';
 import { ROLE_DEFINITIONS } from '../data/roles';
-import { CARD_DEFINITIONS } from '../data/cards';
 
 interface Props {
   players: { [id: string]: PublicPlayerInfo };
@@ -25,10 +24,9 @@ export const PlayerBoard: React.FC<Props> = ({
   activeDraftEvent = null,
 }) => {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+    <div className="player-board-grid">
       {Object.values(players).map((p) => {
         const role = p.roleId ? ROLE_DEFINITIONS[p.roleId] : null;
-        const lastCard = p.lastUsedCardId ? CARD_DEFINITIONS[p.lastUsedCardId] : null;
         const isMe = p.id === myId;
         const isSelected = selectedTargetId === p.id;
         const isDead = !p.isAlive;
@@ -71,23 +69,18 @@ export const PlayerBoard: React.FC<Props> = ({
         return (
           <div
             key={p.id}
-            className={isHit ? 'hit-shake' : ''}
+            className={`player-card ${isHit ? 'hit-shake' : ''}`}
             onClick={() => {
               if (canSelectTarget && !isDead && onSelectTarget) {
                 onSelectTarget(p.id);
               }
             }}
             style={{
-              padding: '12px',
-              borderRadius: '8px',
               border: `2px solid ${borderColor}`,
-              backgroundColor: isDead ? '#222' : isMe ? '#1e293b' : '#1f2937',
-              color: isDead ? '#888' : '#fff',
+              backgroundColor: isDead ? '#1a1f2c' : isMe ? '#1e293b' : '#111827',
+              color: isDead ? '#64748b' : '#fff',
               cursor: canSelectTarget && !isDead ? 'pointer' : 'default',
               boxShadow,
-              transition: 'all 0.2s ease',
-              position: 'relative',
-              overflow: 'hidden',
             }}
           >
             {/* 行動中 / 対象バッジ / 給与 / 落札 */}
@@ -99,9 +92,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   right: 0,
                   backgroundColor: '#facc15',
                   color: '#000',
-                  fontSize: '0.7em',
+                  fontSize: '0.65em',
                   fontWeight: 'bold',
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   borderBottomLeftRadius: '6px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
                   zIndex: 2,
@@ -118,9 +111,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   right: 0,
                   backgroundColor: '#eab308',
                   color: '#000',
-                  fontSize: '0.7em',
+                  fontSize: '0.65em',
                   fontWeight: 'bold',
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   borderBottomLeftRadius: '6px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                   zIndex: 2,
@@ -137,9 +130,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   right: 0,
                   backgroundColor: '#eab308',
                   color: '#000',
-                  fontSize: '0.7em',
+                  fontSize: '0.65em',
                   fontWeight: 'bold',
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   borderBottomLeftRadius: '6px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                   zIndex: 2,
@@ -156,9 +149,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   right: 0,
                   backgroundColor: '#ef4444',
                   color: '#fff',
-                  fontSize: '0.7em',
+                  fontSize: '0.65em',
                   fontWeight: 'bold',
-                  padding: '2px 8px',
+                  padding: '1px 6px',
                   borderBottomLeftRadius: '6px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                   zIndex: 2,
@@ -180,9 +173,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: '#facc15',
                   color: '#000',
                   fontWeight: '900',
-                  fontSize: '1.4em',
-                  padding: '4px 14px',
-                  borderRadius: '20px',
+                  fontSize: '1.2em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 14px rgba(250, 204, 21, 0.7)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -205,9 +198,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: '#facc15',
                   color: '#000',
                   fontWeight: '900',
-                  fontSize: '1.2em',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
+                  fontSize: '1.1em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 14px rgba(250, 204, 21, 0.7)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -230,9 +223,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: activeEvent.isCritical ? '#facc15' : '#ef4444',
                   color: activeEvent.isCritical ? '#000' : '#fff',
                   fontWeight: '900',
-                  fontSize: '1.4em',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
+                  fontSize: '1.3em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -254,9 +247,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: '#06b6d4',
                   color: '#fff',
                   fontWeight: '900',
-                  fontSize: '1.2em',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
+                  fontSize: '1.1em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -277,9 +270,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: '#6366f1',
                   color: '#fff',
                   fontWeight: '900',
-                  fontSize: '1.2em',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
+                  fontSize: '1.1em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -300,9 +293,9 @@ export const PlayerBoard: React.FC<Props> = ({
                   backgroundColor: '#10b981',
                   color: '#fff',
                   fontWeight: '900',
-                  fontSize: '1.3em',
-                  padding: '4px 12px',
-                  borderRadius: '20px',
+                  fontSize: '1.2em',
+                  padding: '2px 10px',
+                  borderRadius: '16px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.6)',
                   zIndex: 10,
                   pointerEvents: 'none',
@@ -312,30 +305,31 @@ export const PlayerBoard: React.FC<Props> = ({
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+            {/* プレイヤー名・ロール */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.85em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '65%' }}>
                 {p.name} {isMe && '(自分)'} {p.isHost && '👑'}
               </div>
-              <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                {role ? role.name : 'ロール未選択'}
+              <div style={{ fontSize: '0.72em', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                {role ? role.name : '未選択'}
               </div>
             </div>
 
             {isDead ? (
-              <div style={{ color: '#ff4444', fontWeight: 'bold', textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ color: '#ef4444', fontWeight: 'bold', textAlign: 'center', padding: '10px 0', fontSize: '0.85em' }}>
                 💀 戦闘不能
               </div>
             ) : (
               <>
                 {/* HP & SLD バー */}
-                <div style={{ marginBottom: '6px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85em', marginBottom: '3px' }}>
-                    <span>HP: {p.hp} / {p.maxHp}</span>
+                <div style={{ marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75em', marginBottom: '2px' }}>
+                    <span>HP: {p.hp}/{p.maxHp}</span>
                     {p.sld > 0 && <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>SLD: {p.sld}</span>}
                   </div>
                   {/* SLDバー (青) */}
                   {p.sld > 0 && (
-                    <div style={{ height: '6px', backgroundColor: '#1e293b', borderRadius: '3px', overflow: 'hidden', marginBottom: '3px' }}>
+                    <div style={{ height: '4px', backgroundColor: '#1e293b', borderRadius: '2px', overflow: 'hidden', marginBottom: '2px' }}>
                       <div
                         style={{
                           height: '100%',
@@ -348,7 +342,7 @@ export const PlayerBoard: React.FC<Props> = ({
                     </div>
                   )}
                   {/* HPバー (緑/赤) */}
-                  <div style={{ height: '8px', backgroundColor: '#555', borderRadius: '4px', overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ height: '6px', backgroundColor: '#334155', borderRadius: '3px', overflow: 'hidden', display: 'flex' }}>
                     <div
                       style={{
                         height: '100%',
@@ -361,44 +355,38 @@ export const PlayerBoard: React.FC<Props> = ({
                 </div>
 
                 {/* ステータスグリッド */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px', fontSize: '0.8em', backgroundColor: '#111827', padding: '6px', borderRadius: '4px' }}>
-                  <div>ATK: <b style={{ color: '#f87171' }}>{p.atk}</b></div>
-                  <div>DEF: <b style={{ color: '#60a5fa' }}>{p.def}</b></div>
-                  <div>SPD: <b style={{ color: '#facc15' }}>{p.spd}</b></div>
-                  <div>MAT: <b style={{ color: '#c084fc' }}>{p.mat}</b></div>
-                  <div>MDF: <b style={{ color: '#818cf8' }}>{p.mdf}</b></div>
-                  <div>CLT: <b style={{ color: '#fb923c' }}>{p.clt}%</b></div>
+                <div className="player-status-grid">
+                  <div>ATK:<b style={{ color: '#f87171' }}>{p.atk}</b></div>
+                  <div>DEF:<b style={{ color: '#60a5fa' }}>{p.def}</b></div>
+                  <div>SPD:<b style={{ color: '#facc15' }}>{p.spd}</b></div>
+                  <div>MAT:<b style={{ color: '#c084fc' }}>{p.mat}</b></div>
+                  <div>MDF:<b style={{ color: '#818cf8' }}>{p.mdf}</b></div>
+                  <div>CLT:<b style={{ color: '#fb923c' }}>{p.clt}%</b></div>
                 </div>
 
-                {/* 回避率・手札枚数・直前カード */}
-                <div style={{ marginTop: '6px', fontSize: '0.8em', display: 'flex', justifyContent: 'space-between' }}>
+                {/* 回避率・手札枚数 */}
+                <div style={{ marginTop: '3px', fontSize: '0.7em', display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
                   <span>手札: {p.handCount}枚</span>
                   {p.evasion > 0 && <span style={{ color: '#34d399' }}>回避: {p.evasion}%</span>}
                 </div>
 
-                {lastCard && (
-                  <div style={{ marginTop: '4px', fontSize: '0.75em', color: '#9ca3af' }}>
-                    直前使用: {lastCard.name}
-                  </div>
-                )}
-
                 {/* 状態異常表示 */}
                 {p.statuses.length > 0 && (
-                  <div style={{ marginTop: '6px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: '3px', display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                     {p.statuses.map((st, i) => (
                       <span
                         key={i}
                         title={st.type === 'poison' ? '毒: ターン終了時に 6+受ける人の現在HPの5% ダメージ（SLD貫通）' : '重傷: 受けるHP回復効果が半減'}
                         style={{
-                          fontSize: '0.75em',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
+                          fontSize: '0.65em',
+                          padding: '1px 4px',
+                          borderRadius: '3px',
                           backgroundColor: st.type === 'poison' ? '#7e22ce' : '#b91c1c',
                           color: '#fff',
                           cursor: 'help',
                         }}
                       >
-                        {st.type === 'poison' ? `毒 (${st.remainingTurns}T)` : `重傷 (${st.remainingTurns}T)`}
+                        {st.type === 'poison' ? `毒(${st.remainingTurns}T)` : `重傷(${st.remainingTurns}T)`}
                       </span>
                     ))}
                   </div>

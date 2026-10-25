@@ -10,7 +10,8 @@ import { ActionView } from './components/ActionView';
 import { ActionResolutionView } from './components/ActionResolutionView';
 import { GoldDistributionView } from './components/GoldDistributionView';
 import { DraftResolutionView } from './components/DraftResolutionView';
-import { GameLogView } from './components/GameLogView';
+import { HandDock } from './components/HandDock';
+import { GameMenuModal } from './components/GameMenuModal';
 import type { DraftBid, PlayerAction } from './types/game';
 import { ROLE_DEFINITIONS } from './data/roles';
 import { CARD_DEFINITIONS } from './data/cards';
@@ -27,8 +28,14 @@ export const App: React.FC = () => {
   const [isHost, setIsHost] = useState<boolean>(false);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+  const [selectedCardInstanceId, setSelectedCardInstanceId] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [reconnectingCountdown, setReconnectingCountdown] = useState<number | null>(null);
+
+  // メニューモーダルおよび未読ログ管理
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [menuTab, setMenuTab] = useState<'MENU' | 'LOG' | 'RULE'>('MENU');
+  const [lastReadLogCount, setLastReadLogCount] = useState<number>(0);
 
   // 同期されるゲームステート
   const [syncData, setSyncData] = useState<ClientSyncData | null>(null);
@@ -197,8 +204,10 @@ export const App: React.FC = () => {
     setSyncData(null);
     setSelectedRoleId(null);
     setSelectedTargetId(null);
+    setSelectedCardInstanceId(null);
     setIsConnecting(false);
     setReconnectingCountdown(null);
+    setIsMenuOpen(false);
   };
 
   // 1. 部屋作成（ホスト）
@@ -354,6 +363,7 @@ export const App: React.FC = () => {
       ...action,
       playerId: action.playerId || effectiveMyId,
     };
+    setSelectedCardInstanceId(null);
     if (isHost && engineRef.current) {
       engineRef.current.submitAction(correctedAction);
     } else {
@@ -388,8 +398,30 @@ export const App: React.FC = () => {
 
   const currentPhase = syncData?.phase || 'LOBBY';
 
+  // 行動選択フェーズ以外の時は選択中カードをリセット
+  useEffect(() => {
+    if (currentPhase !== 'ACTION') {
+      setSelectedCardInstanceId(null);
+    }
+  }, [currentPhase]);
+
+  // ログ閲覧ハンドラ
+  const totalLogs = syncData?.logs.length || 0;
+  const hasUnreadLogs = totalLogs > lastReadLogCount;
+
+  const handleOpenLogs = () => {
+    setMenuTab('LOG');
+    setIsMenuOpen(true);
+    setLastReadLogCount(totalLogs);
+  };
+
+  const handleOpenMenu = () => {
+    setMenuTab('MENU');
+    setIsMenuOpen(true);
+  };
+
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', color: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <>
       {/* ホスト一時切断時の再接続待機オーバーレイ */}
       {reconnectingCountdown !== null && (
         <div style={{
@@ -459,183 +491,224 @@ export const App: React.FC = () => {
 
       {/* 入室前・ロビー・ロール選択 */}
       {(!syncData || currentPhase === 'LOBBY' || currentPhase === 'ROLE_SELECT') ? (
-        <LobbyView
-          phase={currentPhase}
-          roomCode={roomCode}
-          isHost={isHost}
-          myId={effectiveMyId}
-          players={syncData?.players || {}}
-          selectedRoleId={selectedRoleId}
-          isConnecting={isConnecting}
-          onSelectRole={handleSelectRole}
-          onStartGame={handleStartGame}
-          onJoinRoom={handleJoinRoom}
-          onCreateRoom={handleCreateRoom}
-          onBackToTitle={handleBackToTitle}
-          onAddTestPlayer={handleAddTestPlayer}
-          onForceEndGame={handleForceEndGame}
-          onRename={handleRename}
-        />
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', color: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+          <LobbyView
+            phase={currentPhase}
+            roomCode={roomCode}
+            isHost={isHost}
+            myId={effectiveMyId}
+            players={syncData?.players || {}}
+            selectedRoleId={selectedRoleId}
+            isConnecting={isConnecting}
+            onSelectRole={handleSelectRole}
+            onStartGame={handleStartGame}
+            onJoinRoom={handleJoinRoom}
+            onCreateRoom={handleCreateRoom}
+            onBackToTitle={handleBackToTitle}
+            onAddTestPlayer={handleAddTestPlayer}
+            onForceEndGame={handleForceEndGame}
+            onRename={handleRename}
+          />
+        </div>
       ) : (
-        /* メインゲーム画面 */
-        <div>
-          {/* ヘッダー情報 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0f172a', padding: '12px 16px', borderRadius: '8px', marginBottom: '12px', border: '1px solid #334155', flexWrap: 'wrap', gap: '8px' }}>
-            <div>
-              <span style={{ fontSize: '1.2em', fontWeight: 'bold' }}>第 {syncData.turn} ターン</span>
-              <span style={{ marginLeft: '12px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#334155', fontSize: '0.85em' }}>
-                フェーズ: {currentPhase === 'GOLD_DISTRIBUTION' ? '給与獲得' : currentPhase === 'DRAFT' ? 'ドラフト' : currentPhase === 'RESOLVING_DRAFT' ? 'ドラフト結果' : currentPhase === 'ACTION' ? '行動選択' : currentPhase === 'RESOLVING' ? '行動解決中' : currentPhase === 'ROUND_RESULT' ? '結果確認' : currentPhase}
+        /* メインゲーム画面（1画面収まりレイアウト） */
+        <div className="game-viewport">
+          {/* ヘッダー情報（コンパクト・固定） */}
+          <div className="game-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.05em', fontWeight: 'bold' }}>第{syncData.turn}T</span>
+              <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: '0.8em', color: '#38bdf8', fontWeight: 'bold' }}>
+                {currentPhase === 'GOLD_DISTRIBUTION' ? '給与' : currentPhase === 'DRAFT' ? 'ドラフト' : currentPhase === 'RESOLVING_DRAFT' ? 'ドラフト結果' : currentPhase === 'ACTION' ? '行動選択' : currentPhase === 'RESOLVING' ? '行動解決中' : currentPhase === 'ROUND_RESULT' ? '結果確認' : currentPhase}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div>
-                ルームID: <b style={{ color: '#38bdf8' }}>{roomCode}</b>
-              </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
+                ID:<b style={{ color: '#38bdf8' }}>{roomCode}</b>
+              </span>
+
+              {/* クイックログボタン */}
               <button
-                onClick={() => {
-                  if (window.confirm('タイトル画面に戻りますか？')) {
-                    handleBackToTitle();
-                  }
-                }}
+                onClick={handleOpenLogs}
                 style={{
-                  backgroundColor: '#475569',
-                  color: '#fff',
-                  border: 'none',
+                  position: 'relative',
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#f8fafc',
                   borderRadius: '6px',
-                  padding: '6px 12px',
-                  fontSize: '0.85em',
-                  fontWeight: 'bold',
+                  padding: '5px 10px',
+                  fontSize: '0.8em',
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
-                タイトルへ戻る
+                <span>📜 ログ</span>
+                {hasUnreadLogs && (
+                  <span
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ef4444',
+                      display: 'inline-block',
+                    }}
+                  />
+                )}
               </button>
-              {isHost && (
-                <button
-                  onClick={handleForceEndGame}
-                  style={{
-                    backgroundColor: '#dc2626',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '6px 14px',
-                    fontSize: '0.85em',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                  }}
-                >
-                  試合を強制終了
-                </button>
-              )}
+
+              {/* ハンバーガーメニューボタン */}
+              <button
+                onClick={handleOpenMenu}
+                aria-label="メニューを開く"
+                style={{
+                  backgroundColor: '#334155',
+                  border: '1px solid #475569',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  padding: '5px 10px',
+                  fontSize: '1em',
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                }}
+              >
+                ☰
+              </button>
             </div>
           </div>
 
-          {/* 全プレイヤーのステータス盤面 */}
-          <PlayerBoard
-            players={syncData.players}
-            myId={effectiveMyId}
-            selectedTargetId={selectedTargetId}
-            onSelectTarget={(id) => setSelectedTargetId(id)}
-            canSelectTarget={currentPhase === 'ACTION'}
-            activeEvent={syncData.activeResolutionEvent}
-            activeGoldEvent={syncData.activeGoldEvent}
-            activeDraftEvent={syncData.activeDraftEvent}
-          />
-
-          {/* ゲーム終了画面 */}
-          {currentPhase === 'GAME_OVER' && (
-            <div style={{ backgroundColor: '#1e293b', padding: '32px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '2px solid #eab308' }}>
-              <h2 style={{ fontSize: '2em', margin: '0 0 12px 0', color: '#facc15' }}>
-                ゲーム終了！
-              </h2>
-              <div style={{ fontSize: '1.4em', marginBottom: '16px' }}>
-                {syncData.winnerId === 'DRAW' ? (
-                  <span style={{ color: '#ef4444' }}>引き分け！ 全員力尽きました！</span>
-                ) : syncData.winnerId === 'FORCE_QUIT' ? (
-                  <span style={{ color: '#ef4444' }}>⚠️ ホストにより試合が強制終了されました。</span>
-                ) : (
-                  <span>
-                    勝者：<b style={{ color: '#4ade80' }}>{syncData.players[syncData.winnerId!]?.name}</b> の勝利です！
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={handleBackToTitle}
-                style={{ padding: '10px 24px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                タイトルへ戻る
-              </button>
-            </div>
-          )}
-
-          {/* 各フェーズのメイン操作パネル */}
-          {currentPhase === 'GOLD_DISTRIBUTION' && (
-            <GoldDistributionView
-              event={syncData.activeGoldEvent || null}
-              isHost={isHost}
-              onSkip={handleSkipResolution}
-            />
-          )}
-
-          {currentPhase === 'DRAFT' && (
-            <DraftView
-              key={`draft-${syncData.turn}`}
-              draftPool={syncData.draftPool}
-              myG={syncData.myG}
-              myId={effectiveMyId}
-              roleId={syncData.players[effectiveMyId]?.roleId}
-              phaseDeadline={syncData.phaseDeadline}
-              onSubmitBid={handleSubmitBid}
-              player={syncData.players[effectiveMyId]}
-              players={syncData.players}
-            />
-          )}
-
-          {currentPhase === 'RESOLVING_DRAFT' && (
-            <DraftResolutionView
-              event={syncData.activeDraftEvent || null}
-              isHost={isHost}
-              onSkip={handleSkipResolution}
-            />
-          )}
-
-          {currentPhase === 'ACTION' && (
-            <ActionView
-              key={`action-${syncData.turn}`}
-              hand={syncData.myHand}
+          {/* 全プレイヤーのステータス盤面（固定） */}
+          <div style={{ padding: '6px 12px 0 12px', flexShrink: 0 }}>
+            <PlayerBoard
               players={syncData.players}
               myId={effectiveMyId}
-              roleId={syncData.players[effectiveMyId]?.roleId}
-              phaseDeadline={syncData.phaseDeadline}
               selectedTargetId={selectedTargetId}
               onSelectTarget={(id) => setSelectedTargetId(id)}
-              onSubmitAction={handleSubmitAction}
+              canSelectTarget={currentPhase === 'ACTION'}
+              activeEvent={syncData.activeResolutionEvent}
+              activeGoldEvent={syncData.activeGoldEvent}
+              activeDraftEvent={syncData.activeDraftEvent}
             />
-          )}
-
-          {currentPhase === 'RESOLVING' && (
-            <ActionResolutionView
-              event={syncData.activeResolutionEvent || null}
-              players={syncData.players}
-              isHost={isHost}
-              onSkip={handleSkipResolution}
-            />
-          )}
-
-          {currentPhase === 'ROUND_RESULT' && (
-            <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '1px solid #334155' }}>
-              <h3 style={{ margin: 0, color: '#38bdf8' }}>ターンの行動が終了しました</h3>
-              <p style={{ color: '#94a3b8', margin: '8px 0 0 0' }}>下のログを確認してください。間もなく次のドラフトが開始されます...</p>
-            </div>
-          )}
-
-          {/* バトルログ */}
-          <div style={{ marginTop: '16px' }}>
-            <GameLogView logs={syncData.logs} myId={effectiveMyId} />
           </div>
+
+          {/* 各フェーズのメイン操作パネル（中央スクロールエリア） */}
+          <div className="game-main-content">
+            {/* ゲーム終了画面 */}
+            {currentPhase === 'GAME_OVER' && (
+              <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '2px solid #eab308' }}>
+                <h2 style={{ fontSize: '1.8em', margin: '0 0 12px 0', color: '#facc15' }}>
+                  ゲーム終了！
+                </h2>
+                <div style={{ fontSize: '1.2em', marginBottom: '16px' }}>
+                  {syncData.winnerId === 'DRAW' ? (
+                    <span style={{ color: '#ef4444' }}>引き分け！ 全員力尽きました！</span>
+                  ) : syncData.winnerId === 'FORCE_QUIT' ? (
+                    <span style={{ color: '#ef4444' }}>⚠️ ホストにより試合が強制終了されました。</span>
+                  ) : (
+                    <span>
+                      勝者：<b style={{ color: '#4ade80' }}>{syncData.players[syncData.winnerId!]?.name}</b> の勝利です！
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={handleBackToTitle}
+                  style={{ padding: '10px 24px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  タイトルへ戻る
+                </button>
+              </div>
+            )}
+
+            {currentPhase === 'GOLD_DISTRIBUTION' && (
+              <GoldDistributionView
+                event={syncData.activeGoldEvent || null}
+                isHost={isHost}
+                onSkip={handleSkipResolution}
+              />
+            )}
+
+            {currentPhase === 'DRAFT' && (
+              <DraftView
+                key={`draft-${syncData.turn}`}
+                draftPool={syncData.draftPool}
+                myG={syncData.myG}
+                myId={effectiveMyId}
+                roleId={syncData.players[effectiveMyId]?.roleId}
+                phaseDeadline={syncData.phaseDeadline}
+                onSubmitBid={handleSubmitBid}
+                player={syncData.players[effectiveMyId]}
+                players={syncData.players}
+              />
+            )}
+
+            {currentPhase === 'RESOLVING_DRAFT' && (
+              <DraftResolutionView
+                event={syncData.activeDraftEvent || null}
+                isHost={isHost}
+                onSkip={handleSkipResolution}
+              />
+            )}
+
+            {currentPhase === 'ACTION' && (
+              <ActionView
+                key={`action-${syncData.turn}`}
+                hand={syncData.myHand}
+                players={syncData.players}
+                myId={effectiveMyId}
+                roleId={syncData.players[effectiveMyId]?.roleId}
+                phaseDeadline={syncData.phaseDeadline}
+                selectedCardInstanceId={selectedCardInstanceId}
+                onSelectCard={(id) => setSelectedCardInstanceId(id)}
+                selectedTargetId={selectedTargetId}
+                onSelectTarget={(id) => setSelectedTargetId(id)}
+                onSubmitAction={handleSubmitAction}
+              />
+            )}
+
+            {currentPhase === 'RESOLVING' && (
+              <ActionResolutionView
+                event={syncData.activeResolutionEvent || null}
+                players={syncData.players}
+                isHost={isHost}
+                onSkip={handleSkipResolution}
+              />
+            )}
+
+            {currentPhase === 'ROUND_RESULT' && (
+              <div style={{ backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '1px solid #334155' }}>
+                <h3 style={{ margin: '0 0 6px 0', color: '#38bdf8' }}>ターンの行動が終了しました</h3>
+                <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85em' }}>
+                  右上の【📜 ログ】または【☰ メニュー】からバトルの詳細を確認できます。間もなく次のドラフトが開始されます...
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 常設手札ドック（画面最下部固定・クリックで詳細確認） */}
+          <HandDock
+            hand={syncData.myHand || []}
+            selectedCardInstanceId={selectedCardInstanceId}
+            onSelectCard={(id) => setSelectedCardInstanceId(id)}
+            isActionPhase={currentPhase === 'ACTION'}
+            player={syncData.players[effectiveMyId]}
+          />
+
+          {/* ハンバーガーメニューモーダル（バトルログ、ルール説明、タイトル戻り） */}
+          <GameMenuModal
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            logs={syncData.logs}
+            myId={effectiveMyId}
+            isHost={isHost}
+            onBackToTitle={handleBackToTitle}
+            onForceEndGame={handleForceEndGame}
+            roomCode={roomCode}
+            initialTab={menuTab}
+          />
         </div>
       )}
-    </div>
+    </>
   );
 };
 

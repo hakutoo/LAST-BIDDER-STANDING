@@ -8,6 +8,8 @@ interface Props {
   myId: string;
   roleId: string | null;
   phaseDeadline: number | null;
+  selectedCardInstanceId: string | null;
+  onSelectCard: (instanceId: string | null) => void;
   selectedTargetId: string | null;
   onSelectTarget: (id: string) => void;
   onSubmitAction: (action: PlayerAction) => void;
@@ -19,10 +21,11 @@ export const ActionView: React.FC<Props> = ({
   myId,
   roleId,
   phaseDeadline,
+  selectedCardInstanceId,
+  onSelectCard,
   selectedTargetId,
   onSubmitAction,
 }) => {
-  const [selectedCardInstanceId, setSelectedCardInstanceId] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(60);
 
@@ -33,7 +36,6 @@ export const ActionView: React.FC<Props> = ({
       const remaining = Math.max(0, Math.ceil((phaseDeadline - Date.now()) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 0 && !isSubmitted) {
-        // タイムアウト時は何もしないで自動提出
         handleSubmitTimeout();
       }
     };
@@ -57,12 +59,7 @@ export const ActionView: React.FC<Props> = ({
   const isSpeedstar = roleId === 'speedstar';
 
   // ターゲットが必要かどうか
-  const requiresEnemyTarget = cardDef && cardDef.targetType === 'SINGLE_ENEMY';
-
-  const handleCardClick = (instanceId: string) => {
-    if (isSubmitted) return;
-    setSelectedCardInstanceId(prev => (prev === instanceId ? null : instanceId));
-  };
+  const requiresEnemyTarget = Boolean(cardDef && cardDef.targetType === 'SINGLE_ENEMY');
 
   const handleDoNothing = () => {
     if (isSubmitted) return;
@@ -83,7 +80,7 @@ export const ActionView: React.FC<Props> = ({
     }
 
     if (requiresEnemyTarget && !selectedTargetId) {
-      alert('対象のプレイヤーを選択してください。上のプレイヤー一覧をクリックして選択できます。');
+      alert('対象のプレイヤーを選択してください。上のプレイヤー盤面をタップして選択できます。');
       return;
     }
 
@@ -97,131 +94,161 @@ export const ActionView: React.FC<Props> = ({
 
   if (hand.length === 0) {
     return (
-      <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '8px', textAlign: 'center', border: '1px solid #334155' }}>
-        <h3 style={{ color: '#facc15', margin: 0 }}>手札が0枚のため、このターンは自動でスキップされます</h3>
-        <p style={{ color: '#94a3b8' }}>他のプレイヤーの行動完了をお待ちください。</p>
+      <div style={{ backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', textAlign: 'center', border: '1px solid #334155' }}>
+        <h3 style={{ color: '#facc15', margin: '0 0 6px 0', fontSize: '1.1em' }}>手札が0枚のため、このターンは自動でスキップされます</h3>
+        <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85em' }}>他のプレイヤーの行動完了をお待ちください。</p>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+    <div style={{ backgroundColor: '#1e293b', padding: '12px 14px', borderRadius: '8px', border: '1px solid #334155', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {/* 上部ヘッダー（残り時間・パッシブ） */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.3em' }}>⚔️ 行動選択フェーズ</h2>
-          <div style={{ fontSize: '0.9em', color: '#94a3b8' }}>
-            使用するカードと対象を選択してください。「何もしない」でカードを温存することも可能です。
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '1.05em', color: '#f8fafc' }}>⚔️ 行動選択</span>
+            {isSpeedstar && (
+              <span style={{ fontSize: '0.75em', color: '#38bdf8', backgroundColor: '#0f172a', padding: '2px 6px', borderRadius: '4px' }}>
+                ★スピードスター: 優先度「高」が2連発！
+              </span>
+            )}
           </div>
-          {isSpeedstar && (
-            <div style={{ fontSize: '0.85em', color: '#38bdf8', marginTop: '2px' }}>
-              ★スピードスターパッシブ: 優先度「高」のカードを使うと2回連続発動！
-            </div>
-          )}
+          <div style={{ fontSize: '0.8em', color: '#94a3b8' }}>
+            下の【手札】からカードを選んで決定、または温存できます
+          </div>
         </div>
-        <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: timeLeft <= 10 ? '#ef4444' : '#facc15' }}>
-          ⏱ 残り: {timeLeft} 秒
+        <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: timeLeft <= 10 ? '#ef4444' : '#facc15', whiteSpace: 'nowrap' }}>
+          ⏱ {timeLeft}s
         </div>
       </div>
 
       {isSubmitted ? (
-        <div style={{ textAlign: 'center', padding: '24px', backgroundColor: '#0f172a', borderRadius: '6px' }}>
-          <div style={{ fontSize: '1.2em', color: '#4ade80', fontWeight: 'bold' }}>
-            行動を確定しました！
+        <div style={{ textAlign: 'center', padding: '16px', backgroundColor: '#0f172a', borderRadius: '6px' }}>
+          <div style={{ fontSize: '1.1em', color: '#4ade80', fontWeight: 'bold' }}>
+            ✓ 行動を確定しました！
           </div>
-          <div style={{ color: '#94a3b8', marginTop: '6px' }}>
+          <div style={{ color: '#94a3b8', fontSize: '0.85em', marginTop: '4px' }}>
             他のプレイヤーの選択を待っています...
           </div>
         </div>
       ) : (
         <>
-          {/* 手札一覧 */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-            {hand.map((item) => {
-              const def = CARD_DEFINITIONS[item.cardId];
-              if (!def) return null;
-              const isSelected = selectedCardInstanceId === item.instanceId;
-
-              return (
-                <div
-                  key={item.instanceId}
-                  onClick={() => handleCardClick(item.instanceId)}
-                  style={{
-                    backgroundColor: isSelected ? '#1e3a8a' : '#0f172a',
-                    border: isSelected ? '2px solid #3b82f6' : '1px solid #475569',
-                    borderRadius: '8px',
-                    padding: '10px',
-                    cursor: 'pointer',
-                    boxShadow: isSelected ? '0 0 10px rgba(59, 130, 246, 0.5)' : 'none',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <b style={{ fontSize: '0.95em' }}>{def.name}</b>
-                      {def.priority === 'HIGH' && (
-                        <span style={{ fontSize: '0.7em', backgroundColor: '#dc2626', padding: '2px 4px', borderRadius: '3px' }}>
-                          優先度: 高
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '0.8em', color: '#cbd5e1' }}>
-                      {formatCardDescription(def.description, players[myId])}
-                    </div>
+          {/* 選択中カードのステータス表示 */}
+          <div
+            style={{
+              backgroundColor: selectedCard ? '#1e3a8a22' : '#0f172a',
+              border: selectedCard ? '1px solid #3b82f6' : '1px dashed #475569',
+              borderRadius: '6px',
+              padding: '8px 12px',
+            }}
+          >
+            {selectedCard && cardDef ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.75em', color: '#94a3b8' }}>選択中:</span>
+                    <b style={{ color: '#38bdf8', fontSize: '1em' }}>{cardDef.name}</b>
+                    {cardDef.priority === 'HIGH' && (
+                      <span style={{ fontSize: '0.65em', backgroundColor: '#dc2626', color: '#fff', padding: '1px 4px', borderRadius: '3px' }}>
+                        優先度:高
+                      </span>
+                    )}
+                    <span style={{ fontSize: '0.75em', color: '#cbd5e1' }}>
+                      ({cardDef.targetType === 'SINGLE_ENEMY' ? '敵1体' : '自身'})
+                    </span>
                   </div>
-                  <div style={{ marginTop: '6px', fontSize: '0.75em', color: '#94a3b8' }}>
-                    対象: {def.targetType === 'SINGLE_ENEMY' ? '敵1体' : '自身'}
+                  <div style={{ fontSize: '0.8em', color: '#cbd5e1', marginTop: '2px' }}>
+                    {formatCardDescription(cardDef.description, players[myId])}
                   </div>
                 </div>
-              );
-            })}
+                <button
+                  onClick={() => onSelectCard(null)}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: '#334155',
+                    color: '#cbd5e1',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.75em',
+                  }}
+                >
+                  選択解除
+                </button>
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.85em', color: '#94a3b8', textAlign: 'center', padding: '4px 0' }}>
+                👇 画面下の <b>手札</b> をタップしてカードを選んでください
+              </div>
+            )}
           </div>
 
-          {/* 対象プレイヤー指定案内 */}
+          {/* ターゲット指定インジケーター（敵対象カード選択時） */}
           {requiresEnemyTarget && (
-            <div style={{
-              backgroundColor: selectedTargetId ? '#064e3b' : '#7f1d1d',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              marginBottom: '12px',
-              fontSize: '0.9em',
-            }}>
+            <div
+              style={{
+                backgroundColor: selectedTargetId ? '#064e3b33' : '#7f1d1d33',
+                border: `1px solid ${selectedTargetId ? '#059669' : '#dc2626'}`,
+                padding: '6px 10px',
+                borderRadius: '6px',
+                fontSize: '0.85em',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
               {selectedTargetId ? (
-                <span>ターゲット: <b>{players[selectedTargetId]?.name}</b> が選択されています。</span>
+                <span>🎯 対象: <b style={{ color: '#4ade80' }}>{players[selectedTargetId]?.name}</b> を選択中</span>
               ) : (
-                <span>⚠️ 攻撃対象を選択してください（上のプレイヤー一覧から対象をクリック）。</span>
+                <span style={{ color: '#fca5a5' }}>⚠️ 上のプレイヤー盤面をタップして攻撃対象を選択してください</span>
               )}
             </div>
           )}
 
-          {/* 決定ボタン・何もしないボタン */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+          {/* 決定・温存ボタンエリア */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '2px' }}>
             <button
               onClick={handleDoNothing}
               style={{
-                padding: '10px 20px',
+                padding: '8px 16px',
                 borderRadius: '6px',
                 backgroundColor: '#334155',
-                color: '#fff',
+                color: '#cbd5e1',
                 border: 'none',
                 cursor: 'pointer',
+                fontSize: '0.85em',
+                fontWeight: 'bold',
               }}
             >
               何もしない (温存)
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!selectedCardInstanceId}
+              disabled={!selectedCardInstanceId || (requiresEnemyTarget && !selectedTargetId)}
               style={{
-                padding: '10px 24px',
+                padding: '8px 24px',
                 borderRadius: '6px',
-                backgroundColor: selectedCardInstanceId ? '#2563eb' : '#1e3a8a',
+                backgroundColor:
+                  selectedCardInstanceId && (!requiresEnemyTarget || selectedTargetId)
+                    ? '#2563eb'
+                    : '#1e3a8a',
                 color: '#fff',
                 fontWeight: 'bold',
                 border: 'none',
-                cursor: selectedCardInstanceId ? 'pointer' : 'not-allowed',
-                opacity: selectedCardInstanceId ? 1 : 0.6,
+                cursor:
+                  selectedCardInstanceId && (!requiresEnemyTarget || selectedTargetId)
+                    ? 'pointer'
+                    : 'not-allowed',
+                opacity:
+                  selectedCardInstanceId && (!requiresEnemyTarget || selectedTargetId)
+                    ? 1
+                    : 0.5,
+                fontSize: '0.9em',
+                boxShadow:
+                  selectedCardInstanceId && (!requiresEnemyTarget || selectedTargetId)
+                    ? '0 0 10px rgba(37, 99, 235, 0.6)'
+                    : 'none',
               }}
             >
               行動を確定する

@@ -52,7 +52,7 @@ export interface DraftResolutionStep {
 
 // ユニークカードの価格取得
 // 優先順位: カード固有価格（CardDefinition.price）> ロール定義価格（RoleDefinition.uniqueCardPrices）
-export function getUniqueCardPrice(cardId: string, roleId?: string): number {
+export function getUniqueCardPrice(cardId: string, roleId?: string | null): number {
   const def = CARD_DEFINITIONS[cardId];
   if (!def) return 0;
 
