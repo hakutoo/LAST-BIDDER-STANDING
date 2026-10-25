@@ -19,7 +19,7 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
     },
     uniqueCardAId: 'unique_juggernaut_a',
     uniqueCardBId: 'unique_juggernaut_b',
-    uniqueCardPrices: { a: 18, b: 25 },
+    uniqueCardPrices: { a: 20, b: 25 },
   },
   berserker: {
     id: 'berserker',

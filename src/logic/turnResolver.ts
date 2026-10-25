@@ -294,7 +294,9 @@ export function buildTurnResolutionSteps(
           lastAttackResult = {
             isEvaded: dmgRes.isEvaded,
             isParried: dmgRes.isParried,
-            isReflected: dmgRes.reflectedDamage > 0,
+            // isReflected は「攻撃が完全無効化されたうえで反射」の場合のみ true とする
+            // (アンチ・マギなど)。パリィ・スタンスは通常ヒット＋反射なので false にする
+            isReflected: dmgRes.isParried && dmgRes.reflectedDamage > 0,
             isCritical: dmgRes.isCritical,
           };
 
@@ -355,7 +357,7 @@ export function buildTurnResolutionSteps(
               }
             );
 
-            // 反射ダメージがある場合 (アンチ・マギ / パリィ・スタンス)
+            // 反射ダメージがある場合 (アンチ・マギ等、完全無効化＋反射系)
             if (dmgRes.reflectedDamage > 0) {
               applyDirectDamage(actor, dmgRes.reflectedDamage, steps, updatedPlayers, turn, `${target.name} からの反射`);
             }
