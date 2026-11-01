@@ -58,6 +58,10 @@ export const ActionResolutionView: React.FC<Props> = ({
         badgeColor = '#f59e0b';
         badgeIcon = '⚡';
         highlightBorder = '#fbbf24';
+      } else if (event.isCriticalAvoided) {
+        badgeColor = '#06b6d4';
+        badgeIcon = '🛡️';
+        highlightBorder = '#22d3ee';
       } else {
         badgeColor = '#ef4444';
         badgeIcon = '💥';

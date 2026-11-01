@@ -14,6 +14,82 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
       { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 0.5 },
     ],
   },
+  // === 通常攻撃派生カード（ATK系統） ===
+  normal_attack_atk_1: {
+    id: 'normal_attack_atk_1',
+    name: '通常攻撃(ATK)【小】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 5,
+    description: '5+ATKの50%を攻撃値とした物理攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'PHYSICAL_ATTACK', baseDamage: 5, multiplier: 0.5 },
+    ],
+  },
+  normal_attack_atk_2: {
+    id: 'normal_attack_atk_2',
+    name: '通常攻撃(ATK)【中】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 10,
+    description: '10+ATKの100%を攻撃値とした物理攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'PHYSICAL_ATTACK', baseDamage: 10, multiplier: 1.0 },
+    ],
+  },
+  normal_attack_atk_3: {
+    id: 'normal_attack_atk_3',
+    name: '通常攻撃(ATK)【大】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 15,
+    description: '15+ATKの150%を攻撃値とした物理攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'PHYSICAL_ATTACK', baseDamage: 15, multiplier: 1.5 },
+    ],
+  },
+
+  // === 通常攻撃派生カード（MAT系統） ===
+  normal_attack_mat_1: {
+    id: 'normal_attack_mat_1',
+    name: '通常攻撃(MAT)【小】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 5,
+    description: '5+MATの50%を攻撃値とした魔法攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'MAGIC_ATTACK', baseDamage: 5, multiplier: 0.5, scaleStat: 'MAT' },
+    ],
+  },
+  normal_attack_mat_2: {
+    id: 'normal_attack_mat_2',
+    name: '通常攻撃(MAT)【中】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 10,
+    description: '10+MATの100%を攻撃値とした魔法攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'MAGIC_ATTACK', baseDamage: 10, multiplier: 1.0, scaleStat: 'MAT' },
+    ],
+  },
+  normal_attack_mat_3: {
+    id: 'normal_attack_mat_3',
+    name: '通常攻撃(MAT)【大】',
+    category: 'NORMAL',
+    priority: 'NORMAL',
+    targetType: 'SINGLE_ENEMY',
+    price: 15,
+    description: '15+MATの150%を攻撃値とした魔法攻撃を行う。使用後は消費される。',
+    effects: [
+      { type: 'MAGIC_ATTACK', baseDamage: 15, multiplier: 1.5, scaleStat: 'MAT' },
+    ],
+  },
+
   heal_powder: {
     id: 'heal_powder',
     name: 'ヒールパウダー',
@@ -44,7 +120,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_B',
     priority: 'NORMAL',
     targetType: 'SINGLE_ENEMY',
-    description: '自身の最大HPを15増加させ同値回復。その後対象に12+自身の最大HPの20%の物理攻撃を行う。',
+    description: '自身の最大HPを15増加させ増加値の半分回復。その後対象に12+自身の最大HPの20%の物理攻撃を行う。',
     effects: [
       { type: 'ADD_MAX_HP', amount: 15, physicalAttackBaseDamage: 12, physicalAttackMaxHpPercent: 0.2 },
     ],
@@ -155,9 +231,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'HIGH',
     targetType: 'SINGLE_ENEMY',
-    description: '13+ATKの75%を攻撃値とした物理攻撃を行う。パッシブにより2回発動。',
+    description: '13+ATKの75%を攻撃値とした物理攻撃を行う。攻撃が命中する度SPDを+1.5する。パッシブにより2回発動。',
     effects: [
-      { type: 'PHYSICAL_ATTACK', baseDamage: 13, multiplier: 0.75 },
+      { type: 'PHYSICAL_ATTACK', baseDamage: 13, multiplier: 0.75, spdGainOnHit: 1.5 },
     ],
   },
   unique_speedstar_b: {
@@ -230,7 +306,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'STATUS_SMALL',
     priority: 'NORMAL',
     targetType: 'SELF',
-    description: '最大HPを15増加させ、同値回復する。',
+    description: '最大HPを15増加させ、増加値の半分を回復する。',
     effects: [],
     statusBonus: { stat: 'HP', amount: 15 },
   },
@@ -312,7 +388,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'STATUS_MEDIUM',
     priority: 'NORMAL',
     targetType: 'SELF',
-    description: '最大HPを30増加させ、同値回復する。',
+    description: '最大HPを30増加させ、増加値の半分を回復する。',
     effects: [],
     statusBonus: { stat: 'HP', amount: 30 },
   },
@@ -394,7 +470,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'STATUS_LARGE',
     priority: 'NORMAL',
     targetType: 'SELF',
-    description: '最大HPを50増加させ、同値回復する。',
+    description: '最大HPを50増加させ、増加値の半分を回復する。',
     effects: [],
     statusBonus: { stat: 'HP', amount: 50 },
   },
@@ -611,7 +687,7 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     ],
   },
 
-  // ドラフト用ヒールパウダー (効果はデフォルトと同じ)
+  // ドラフト用ヒールパウダー系統
   draft_heal_powder: {
     id: 'draft_heal_powder',
     name: 'ヒールパウダー',
@@ -621,6 +697,28 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     description: 'HPを15回復する。回復量は最大HPを超えない。重傷時は半減。',
     effects: [
       { type: 'HEAL', amount: 15 },
+    ],
+  },
+  draft_heal_powder_2: {
+    id: 'draft_heal_powder_2',
+    name: 'ヒールパウダー改',
+    category: 'HEAL',
+    priority: 'NORMAL',
+    targetType: 'SELF',
+    description: 'HPを30回復する。回復量は最大HPを超えない。重傷時は半減。',
+    effects: [
+      { type: 'HEAL', amount: 30 },
+    ],
+  },
+  draft_heal_powder_3: {
+    id: 'draft_heal_powder_3',
+    name: 'グレートヒールパウダー',
+    category: 'HEAL',
+    priority: 'NORMAL',
+    targetType: 'SELF',
+    description: 'HPを45回復する。回復量は最大HPを超えない。重傷時は半減。',
+    effects: [
+      { type: 'HEAL', amount: 45 },
     ],
   },
 };
@@ -702,6 +800,15 @@ export function formatCardDescription(
     return `${fixedPart ?? ''}${prefix ?? ''}${stat}の${percent}${symbol}(=${rounded})`;
   });
 }
+
+export const NORMAL_ATTACK_DERIVATIVE_CARD_IDS = [
+  'normal_attack_atk_1',
+  'normal_attack_atk_2',
+  'normal_attack_atk_3',
+  'normal_attack_mat_1',
+  'normal_attack_mat_2',
+  'normal_attack_mat_3',
+] as const;
 
 export function getCardDescription(
   card: CardDefinition,

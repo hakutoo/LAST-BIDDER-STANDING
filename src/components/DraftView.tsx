@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { DraftCard, DraftBid, PublicPlayerInfo } from '../types/game';
-import { CARD_DEFINITIONS, formatCardDescription } from '../data/cards';
+import { CARD_DEFINITIONS, formatCardDescription, NORMAL_ATTACK_DERIVATIVE_CARD_IDS } from '../data/cards';
 import { ROLE_DEFINITIONS } from '../data/roles';
 import { getUniqueCardPrice } from '../logic/draft';
 
@@ -126,6 +126,7 @@ export const DraftView: React.FC<Props> = ({
 
   const myRole = roleId ? ROLE_DEFINITIONS[roleId] : null;
   const uniqueCardIds = myRole ? [myRole.uniqueCardAId, myRole.uniqueCardBId] : [];
+  const normalAttackCardIds = [...NORMAL_ATTACK_DERIVATIVE_CARD_IDS];
 
   const handleBidChange = (instanceId: string, valueStr: string) => {
     if (isSubmitted) return;
@@ -198,13 +199,13 @@ export const DraftView: React.FC<Props> = ({
         </div>
       ) : (
         <>
-          {/* 1. ユニークカードショップ欄 */}
+          {/* 1. 定額ショップ欄（ユニークカード ＆ 通常攻撃カード） */}
           <div style={{ marginBottom: '24px', backgroundColor: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #6366f1' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
               <div>
-                <span style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#818cf8' }}>🛒 ユニークカードショップ</span>
+                <span style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#818cf8' }}>🛒 定額ショップ</span>
                 <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '8px' }}>
-                  （自ロール専用カード・定額購入・購入履歴は全体ログ非公開）
+                  （いつでも定額購入可能・購入履歴は全体ログ非公開）
                 </span>
               </div>
               <div style={{ fontSize: '0.9em', color: '#c7d2fe' }}>
@@ -212,16 +213,122 @@ export const DraftView: React.FC<Props> = ({
               </div>
             </div>
 
-            {uniqueCardIds.length === 0 ? (
-              <div style={{ color: '#94a3b8', fontSize: '0.9em' }}>購入可能なユニークカードがありません。</div>
-            ) : (
+            {/* 固有ユニークカード */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '0.95em', fontWeight: 'bold', color: '#c084fc', marginBottom: '8px' }}>
+                👑 固有ユニークカード <span style={{ fontSize: '0.8em', fontWeight: 'normal', color: '#94a3b8' }}>（自ロール専用）</span>
+              </div>
+              {uniqueCardIds.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: '0.9em' }}>購入可能なユニークカードがありません。</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                  {uniqueCardIds.map((cardId) => {
+                    const def = CARD_DEFINITIONS[cardId];
+                    if (!def) return null;
+                    const price = getUniqueCardPrice(cardId, roleId);
+                    const count = uniquePurchases[cardId] || 0;
+                    const isUniqueA = def.category === 'UNIQUE_A';
+                    const canBuy = remainingG >= price;
+
+                    return (
+                      <div
+                        key={cardId}
+                        style={{
+                          backgroundColor: '#1e293b',
+                          border: count > 0 ? '2px solid #818cf8' : '1px solid #475569',
+                          borderRadius: '6px',
+                          padding: '10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <b style={{ fontSize: '1.05em', color: '#f8fafc' }}>{def.name}</b>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {def.priority === 'HIGH' && (
+                                <span style={{ fontSize: '0.7em', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#e11d48', color: '#fff' }}>
+                                  優先度:高
+                                </span>
+                              )}
+                              <span
+                                style={{
+                                  fontSize: '0.7em',
+                                  padding: '1px 5px',
+                                  borderRadius: '3px',
+                                  backgroundColor: isUniqueA ? '#4338ca' : '#6d28d9',
+                                  color: '#fff',
+                                }}
+                              >
+                                {isUniqueA ? 'ユニークA' : 'ユニークB'} ({price}G)
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>
+                            {formatCardDescription(def.description, myPlayer)}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '4px' }}>
+                          <div style={{ fontSize: '0.9em', color: '#e2e8f0' }}>
+                            単価: <b style={{ color: '#facc15' }}>{price}G</b>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => handleUniquePurchaseChange(cardId, -1)}
+                              disabled={count <= 0}
+                              style={{
+                                padding: '2px 10px',
+                                borderRadius: '4px',
+                                cursor: count > 0 ? 'pointer' : 'not-allowed',
+                                backgroundColor: count > 0 ? '#475569' : '#334155',
+                                color: '#fff',
+                                border: 'none',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              -
+                            </button>
+                            <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05em', color: count > 0 ? '#818cf8' : '#94a3b8' }}>
+                              {count}
+                            </span>
+                            <button
+                              onClick={() => handleUniquePurchaseChange(cardId, 1)}
+                              disabled={!canBuy}
+                              style={{
+                                padding: '2px 10px',
+                                borderRadius: '4px',
+                                cursor: canBuy ? 'pointer' : 'not-allowed',
+                                backgroundColor: canBuy ? '#6366f1' : '#334155',
+                                color: '#fff',
+                                border: 'none',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 通常攻撃派生カード */}
+            <div>
+              <div style={{ fontSize: '0.95em', fontWeight: 'bold', color: '#38bdf8', marginBottom: '8px' }}>
+                ⚔️ 通常攻撃カード <span style={{ fontSize: '0.8em', fontWeight: 'normal', color: '#94a3b8' }}>（全プレイヤー購入可能・いつでも定額購入）</span>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                {uniqueCardIds.map((cardId) => {
+                {normalAttackCardIds.map((cardId) => {
                   const def = CARD_DEFINITIONS[cardId];
                   if (!def) return null;
                   const price = getUniqueCardPrice(cardId, roleId);
                   const count = uniquePurchases[cardId] || 0;
-                  const isUniqueA = def.category === 'UNIQUE_A';
+                  const isAtk = cardId.includes('_atk_');
                   const canBuy = remainingG >= price;
 
                   return (
@@ -229,7 +336,7 @@ export const DraftView: React.FC<Props> = ({
                       key={cardId}
                       style={{
                         backgroundColor: '#1e293b',
-                        border: count > 0 ? '2px solid #818cf8' : '1px solid #475569',
+                        border: count > 0 ? '2px solid #38bdf8' : '1px solid #475569',
                         borderRadius: '6px',
                         padding: '10px',
                         display: 'flex',
@@ -240,24 +347,17 @@ export const DraftView: React.FC<Props> = ({
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                           <b style={{ fontSize: '1.05em', color: '#f8fafc' }}>{def.name}</b>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            {def.priority === 'HIGH' && (
-                              <span style={{ fontSize: '0.7em', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#e11d48', color: '#fff' }}>
-                                優先度:高
-                              </span>
-                            )}
-                            <span
-                              style={{
-                                fontSize: '0.7em',
-                                padding: '1px 5px',
-                                borderRadius: '3px',
-                                backgroundColor: isUniqueA ? '#4338ca' : '#6d28d9',
-                                color: '#fff',
-                              }}
-                            >
-                              {isUniqueA ? 'ユニークA' : 'ユニークB'} ({price}G)
-                            </span>
-                          </div>
+                          <span
+                            style={{
+                              fontSize: '0.7em',
+                              padding: '1px 5px',
+                              borderRadius: '3px',
+                              backgroundColor: isAtk ? '#c2410c' : '#2563eb',
+                              color: '#fff',
+                            }}
+                          >
+                            {isAtk ? '通常(ATK)' : '通常(MAT)'} ({price}G)
+                          </span>
                         </div>
                         <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>
                           {formatCardDescription(def.description, myPlayer)}
@@ -284,7 +384,7 @@ export const DraftView: React.FC<Props> = ({
                           >
                             -
                           </button>
-                          <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05em', color: count > 0 ? '#818cf8' : '#94a3b8' }}>
+                          <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05em', color: count > 0 ? '#38bdf8' : '#94a3b8' }}>
                             {count}
                           </span>
                           <button
@@ -294,7 +394,7 @@ export const DraftView: React.FC<Props> = ({
                               padding: '2px 10px',
                               borderRadius: '4px',
                               cursor: canBuy ? 'pointer' : 'not-allowed',
-                              backgroundColor: canBuy ? '#6366f1' : '#334155',
+                              backgroundColor: canBuy ? '#0284c7' : '#334155',
                               color: '#fff',
                               border: 'none',
                               fontWeight: 'bold',
@@ -308,7 +408,7 @@ export const DraftView: React.FC<Props> = ({
                   );
                 })}
               </div>
-            )}
+            </div>
           </div>
 
           {/* 2. ドラフトプール一覧 */}
@@ -344,7 +444,7 @@ export const DraftView: React.FC<Props> = ({
                             fontSize: '0.75em',
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            backgroundColor: isStatus ? '#0284c7' : isHeal ? '#16a34a' : '#7c3aed',
+                            backgroundColor: isStatus ? '#0284c7' : isHeal ? '#16a34a' : def.category === 'NORMAL' ? '#475569' : '#7c3aed',
                           }}
                         >
                           {isStatus ? '即時ステータス' : (CATEGORY_NAMES[def.category] || def.category)}

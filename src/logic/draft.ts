@@ -1,4 +1,4 @@
-import type { CardDefinition } from '../types/cards';
+﻿import type { CardDefinition } from '../types/cards';
 import type { DraftCard, DraftBid, PlayerState, GameLogEntry } from '../types/game';
 import { CARD_DEFINITIONS } from '../data/cards';
 import { ROLE_DEFINITIONS } from '../data/roles';
@@ -56,6 +56,9 @@ export function getUniqueCardPrice(cardId: string, roleId?: string | null): numb
   const def = CARD_DEFINITIONS[cardId];
   if (!def) return 0;
 
+  // カード固有価格（通常攻撃派生カードや個別設定ユニークカード）が設定されていれば最優先
+  if (def.price !== undefined) return def.price;
+
   if (def.category === 'UNIQUE_A') {
     // カード固有価格が設定されていればそちらを優先
     if (def.price !== undefined) return def.price;
@@ -80,6 +83,7 @@ export function getUniqueCardPrice(cardId: string, roleId?: string | null): numb
 }
 
 // ドラフト解決の二段階ステップ列を生成
+export const getShopCardPrice = getUniqueCardPrice;
 export function buildDraftResolutionSteps(
   draftPool: DraftCard[],
   bids: { [playerId: string]: DraftBid },
@@ -308,10 +312,12 @@ function applyStatusCardBonus(player: PlayerState, cardDef: CardDefinition) {
   const { stat, amount } = cardDef.statusBonus;
 
   switch (stat) {
-    case 'HP':
+    case 'HP': {
       player.maxHp += amount;
-      player.hp = Math.min(player.maxHp, player.hp + amount);
+      const healAmount = Math.floor(amount / 2);
+      player.hp = Math.min(player.maxHp, player.hp + healAmount);
       break;
+    }
     case 'ATK':
       player.atk += amount;
       break;

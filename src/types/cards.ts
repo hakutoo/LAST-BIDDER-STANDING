@@ -22,6 +22,7 @@ export type CardEffect =
       multiplier: number; // ATK * multiplier
       hits?: number; // 攻撃回数 (例: ツインスラッシュ=2)
       consumeSldRate?: number; // シールドクラッシュ用: 消費したSLDの加算
+      spdGainOnHit?: number; // 命中時SPD上昇量 (アクセル・ビート: 1.5)
     }
   | {
       type: 'CONSUME_SLD_ATTACK';
@@ -43,7 +44,7 @@ export type CardEffect =
     }
   | {
       type: 'ADD_MAX_HP';
-      amount: number; // 最大HP増加（同値現在HP回復）
+      amount: number; // 最大HP増加（増加値の半分HP回復）
       physicalAttackBaseDamage?: number; // ヘビースタンプ: 固定攻撃値 12
       physicalAttackMaxHpPercent?: number; // ヘビースタンプ: 最大HPの20%を物理攻撃値として対象攻撃
     }
@@ -109,5 +110,5 @@ export interface CardDefinition {
    * 設定した場合はグローバルデフォルト（UNIQUE_CARD_A/B_PRICE）より優先される。
    * UNIQUE_A / UNIQUE_B カード以外には無効。
    */
-  price?: number;
+  price?: number; // ショップ定額購入価格（G）
 }

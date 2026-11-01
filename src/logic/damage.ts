@@ -18,6 +18,9 @@ export interface DamageResult {
   isEvaded: boolean;
   isParried: boolean;
   isCritical: boolean;
+  isCriticalAvoided?: boolean;
+  isSpdDamageReduced?: boolean;
+  spdReductionPercent?: number;
   initialAttackValue: number;
   reducedDamage: number;
   finalDamage: number;
@@ -39,6 +42,9 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     isEvaded: false,
     isParried: false,
     isCritical: false,
+    isCriticalAvoided: false,
+    isSpdDamageReduced: false,
+    spdReductionPercent: 0,
     initialAttackValue: 0,
     reducedDamage: 0,
     finalDamage: 0,
@@ -110,15 +116,25 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     attackValue += consumeSld;
   }
 
+  const currentTurn = turn !== undefined ? turn : 1;
+  // SPDステータス仕様: (((値)÷8)-((ターン数)×(0.05))%)の確率(=x)
+  const spdX = Math.max(0, (target.spd / 8) - (Math.max(1, currentTurn) * 0.05));
+
   // 2. CLT（クリティカル）の判定を行う
   // 物理攻撃のみ、かつ対象にSLDが存在しない場合のみ
   if (damageType === 'PHYSICAL' && target.sld <= 0) {
     let effectiveClt = attacker.clt + (tempCltBonus || 0);
     effectiveClt = Math.min(GAME_CONFIG.CRITICAL_MAX_RATE, Math.max(0, effectiveClt));
     if (effectiveClt > 0 && Math.random() * 100 < effectiveClt) {
-      result.isCritical = true;
-      // 発生した場合、攻撃値を1.3倍する
-      attackValue *= GAME_CONFIG.CRITICAL_DAMAGE_MULTIPLIER;
+      // SPDステータスによるクリティカル回避判定: 8x% の確率でクリティカル回避
+      const critAvoidChance = Math.min(100, 8 * spdX);
+      if (critAvoidChance > 0 && Math.random() * 100 < critAvoidChance) {
+        result.isCriticalAvoided = true;
+      } else {
+        result.isCritical = true;
+        // 発生した場合、攻撃値を1.3倍する
+        attackValue *= GAME_CONFIG.CRITICAL_DAMAGE_MULTIPLIER;
+      }
     }
   }
 
@@ -126,7 +142,6 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
 
   // 3. 攻撃値を決定する。
   // 4. DEFまたはMDFによる軽減を行う (100 / (100 + (DEForMDF) + (20 - (ターン数)))) ※ターン数は20で打ち止め。
-  const currentTurn = turn !== undefined ? turn : 1;
   const effectiveTurn = Math.min(20, Math.max(1, currentTurn));
   const turnMod = 20 - effectiveTurn;
 
@@ -172,6 +187,14 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     const reducedAmount = damageAfterDefense * 0.5;
     result.reflectedDamage = Math.floor(reducedAmount);
     damageAfterDefense = damageAfterDefense * 0.5;
+  }
+
+  // 6e. SPDによるダメージ軽減: x%の確率でダメージ4x%軽減
+  if (spdX > 0 && Math.random() * 100 < Math.min(100, spdX)) {
+    const reductionPercent = Math.min(100, 4 * spdX);
+    damageAfterDefense *= (1.0 - (reductionPercent / 100));
+    result.isSpdDamageReduced = true;
+    result.spdReductionPercent = Math.round(reductionPercent * 10) / 10;
   }
 
   // 7. SLDによるダメージ処理を行う

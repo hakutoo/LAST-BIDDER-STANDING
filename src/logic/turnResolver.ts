@@ -1,4 +1,4 @@
-import type { CardDefinition } from '../types/cards';
+﻿import type { CardDefinition } from '../types/cards';
 import type { GameLogEntry, PlayerAction, PlayerState, BattleEvent } from '../types/game';
 import { CARD_DEFINITIONS } from '../data/cards';
 import { calculateDamage } from './damage';
@@ -378,7 +378,16 @@ export function buildTurnResolutionSteps(
                 actor.hp = Math.max(0, actor.hp - counterDmgRes.hpDamage);
                 actor.sld = Math.max(0, actor.sld - counterDmgRes.sldDamage);
 
-                const counterHitMsg = `【カウンター】${target.name} の反撃！ ${actor.name} に ${counterDmgRes.finalDamage} ダメージ (HP: -${counterDmgRes.hpDamage}, SLD: -${counterDmgRes.sldDamage})`;
+                let counterHitMsg = `【カウンター】${target.name} の反撃！ ${actor.name} に ${counterDmgRes.finalDamage} ダメージ (HP: -${counterDmgRes.hpDamage}, SLD: -${counterDmgRes.sldDamage})`;
+                if (counterDmgRes.isCritical) {
+                  counterHitMsg = `【痛恨の反撃！】` + counterHitMsg;
+                } else if (counterDmgRes.isCriticalAvoided) {
+                  counterHitMsg = `【クリティカル回避！】` + counterHitMsg;
+                }
+                if (counterDmgRes.isSpdDamageReduced) {
+                  counterHitMsg += ` (SPDにより${counterDmgRes.spdReductionPercent}%軽減)`;
+                }
+
                 pushStep(
                   steps,
                   updatedPlayers,
@@ -399,7 +408,9 @@ export function buildTurnResolutionSteps(
                     hpDamage: counterDmgRes.hpDamage,
                     sldDamage: counterDmgRes.sldDamage,
                     isCritical: counterDmgRes.isCritical,
-                    title: '反撃！',
+                    isCriticalAvoided: counterDmgRes.isCriticalAvoided,
+                    isSpdDamageReduced: counterDmgRes.isSpdDamageReduced,
+                    title: counterDmgRes.isCritical ? '痛恨の反撃！' : (counterDmgRes.isCriticalAvoided ? '反撃（痛恨回避）' : '反撃！'),
                     description: counterHitMsg,
                   }
                 );
@@ -422,6 +433,16 @@ export function buildTurnResolutionSteps(
           let hitMsg = `${actor.name} の攻撃！ ${target.name} に ${dmgRes.finalDamage} ダメージ (HP: -${dmgRes.hpDamage}, SLD: -${dmgRes.sldDamage})`;
           if (dmgRes.isCritical) {
             hitMsg = `【痛恨の一撃！】` + hitMsg;
+          } else if (dmgRes.isCriticalAvoided) {
+            hitMsg = `【クリティカル回避！】` + hitMsg;
+          }
+          if (dmgRes.isSpdDamageReduced) {
+            hitMsg += ` (SPDにより${dmgRes.spdReductionPercent}%軽減)`;
+          }
+
+          let hitTitle = dmgRes.isCritical ? '会心の一撃！' : '命中！';
+          if (dmgRes.isCriticalAvoided) {
+            hitTitle = '痛恨回避！';
           }
 
           pushStep(
@@ -446,10 +467,40 @@ export function buildTurnResolutionSteps(
               hpDamage: dmgRes.hpDamage,
               sldDamage: dmgRes.sldDamage,
               isCritical: dmgRes.isCritical,
-              title: dmgRes.isCritical ? '会心の一撃！' : '命中！',
+              isCriticalAvoided: dmgRes.isCriticalAvoided,
+              isSpdDamageReduced: dmgRes.isSpdDamageReduced,
+              title: hitTitle,
               description: hitMsg,
             }
           );
+
+          // 命中時SPD上昇 (アクセル・ビート等)
+          const spdGain = (effect.type === 'PHYSICAL_ATTACK' && effect.spdGainOnHit) || (cardDef.id === 'unique_speedstar_a' ? 1.5 : 0);
+          if (spdGain > 0) {
+            const prevSpd = actor.spd;
+            actor.spd = Math.round((actor.spd + spdGain) * 10) / 10;
+            const spdMsg = `【${cardDef.name}】攻撃が命中し、${actor.name} のSPDが ${spdGain} 上昇した！ (${prevSpd} → ${actor.spd})`;
+            pushStep(
+              steps,
+              updatedPlayers,
+              {
+                id: `turn_log_${Math.random()}`,
+                turn,
+                text: spdMsg,
+                type: 'status',
+              },
+              {
+                id: `event_${Math.random()}`,
+                type: 'BUFF',
+                actorId: actor.id,
+                actorName: actor.name,
+                cardId: cardDef.id,
+                cardName: cardDef.name,
+                title: 'SPD上昇',
+                description: spdMsg,
+              }
+            );
+          }
 
           // センチネル パッシブ「鋼のビルドアップ」: 物理攻撃を受けるたびにDEF+2
           if (isPhysical && target.roleId === 'sentinel') {
@@ -523,8 +574,10 @@ export function buildTurnResolutionSteps(
         const prevMaxHp = actor.maxHp;
         const prevHp = actor.hp;
         actor.maxHp += effect.amount;
-        actor.hp = Math.min(actor.maxHp, actor.hp + effect.amount);
-        const maxHpMsg = `${actor.name} の最大HPとHPが ${effect.amount} 増加した！ (最大HP: ${prevMaxHp} → ${actor.maxHp}, HP: ${prevHp} → ${actor.hp})`;
+        const healAmount = Math.floor(effect.amount / 2);
+        const actualHeal = Math.max(0, Math.min(actor.maxHp - prevHp, healAmount));
+        actor.hp = prevHp + actualHeal;
+        const maxHpMsg = `${actor.name} の最大HPが ${effect.amount} 増加し、HPが ${actualHeal} 回復した！ (最大HP: ${prevMaxHp} → ${actor.maxHp}, HP: ${prevHp} → ${actor.hp})`;
         pushStep(
           steps,
           updatedPlayers,
@@ -539,7 +592,7 @@ export function buildTurnResolutionSteps(
             type: 'BUFF',
             actorId: actor.id,
             actorName: actor.name,
-            healAmount: effect.amount,
+            healAmount: actualHeal,
             title: '最大HP増加',
             description: maxHpMsg,
           }
@@ -585,7 +638,16 @@ export function buildTurnResolutionSteps(
             actor.lastDamageDealt += dmgRes.finalDamage;
             target.hp = Math.max(0, target.hp - dmgRes.hpDamage);
             target.sld = Math.max(0, target.sld - dmgRes.sldDamage);
-            const stampMsg = `${actor.name} のヘビースタンプ！ ${target.name} に ${dmgRes.finalDamage} ダメージ！`;
+            let stampMsg = `${actor.name} のヘビースタンプ！ ${target.name} に ${dmgRes.finalDamage} ダメージ！`;
+            if (dmgRes.isCritical) {
+              stampMsg = `【痛恨の一撃！】` + stampMsg;
+            } else if (dmgRes.isCriticalAvoided) {
+              stampMsg = `【クリティカル回避！】` + stampMsg;
+            }
+            if (dmgRes.isSpdDamageReduced) {
+              stampMsg += ` (SPDにより${dmgRes.spdReductionPercent}%軽減)`;
+            }
+
             pushStep(
               steps,
               updatedPlayers,
@@ -607,7 +669,10 @@ export function buildTurnResolutionSteps(
                 damage: dmgRes.finalDamage,
                 hpDamage: dmgRes.hpDamage,
                 sldDamage: dmgRes.sldDamage,
-                title: 'ヘビースタンプ',
+                isCritical: dmgRes.isCritical,
+                isCriticalAvoided: dmgRes.isCriticalAvoided,
+                isSpdDamageReduced: dmgRes.isSpdDamageReduced,
+                title: dmgRes.isCriticalAvoided ? 'ヘビースタンプ（痛恨回避）' : 'ヘビースタンプ',
                 description: stampMsg,
               }
             );

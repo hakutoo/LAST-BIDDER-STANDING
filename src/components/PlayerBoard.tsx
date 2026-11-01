@@ -358,7 +358,7 @@ export const PlayerBoard: React.FC<Props> = ({
                 <div className="player-status-grid">
                   <div>ATK:<b style={{ color: '#f87171' }}>{p.atk}</b></div>
                   <div>DEF:<b style={{ color: '#60a5fa' }}>{p.def}</b></div>
-                  <div>SPD:<b style={{ color: '#facc15' }}>{p.spd}</b></div>
+                  <div title="SPD: 行動順・被攻撃時に (SPD÷8 - ターン×0.05)% の確率(=x)でダメージ4x%軽減、8x%でクリティカル回避">SPD:<b style={{ color: '#facc15' }}>{p.spd}</b></div>
                   <div>MAT:<b style={{ color: '#c084fc' }}>{p.mat}</b></div>
                   <div>MDF:<b style={{ color: '#818cf8' }}>{p.mdf}</b></div>
                   <div>CLT:<b style={{ color: '#fb923c' }}>{p.clt}%</b></div>

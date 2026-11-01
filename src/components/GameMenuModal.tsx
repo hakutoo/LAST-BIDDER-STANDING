@@ -317,7 +317,7 @@ export const GameMenuModal: React.FC<Props> = ({
                     <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>DEF:</span> 物理防御力
                   </div>
                   <div style={{ backgroundColor: '#0f172a', padding: '6px', borderRadius: '4px' }}>
-                    <span style={{ color: '#facc15', fontWeight: 'bold' }}>SPD:</span> 行動順・回避率
+                    <span style={{ color: '#facc15', fontWeight: 'bold' }}>SPD:</span> 行動順、(SPD÷8 - ターン×0.05)%の確率(=x)で被ダメ4x%軽減、8x%でクリティカル回避
                   </div>
                   <div style={{ backgroundColor: '#0f172a', padding: '6px', borderRadius: '4px' }}>
                     <span style={{ color: '#c084fc', fontWeight: 'bold' }}>MAT:</span> 魔法攻撃力

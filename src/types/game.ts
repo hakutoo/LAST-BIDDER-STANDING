@@ -173,6 +173,8 @@ export interface BattleEvent {
   sldDamage?: number;
   healAmount?: number;
   isCritical?: boolean;
+  isCriticalAvoided?: boolean;
+  isSpdDamageReduced?: boolean;
 }
 
 export interface GameState {

@@ -1,6 +1,8 @@
 import { calculateDamage } from './logic/damage';
 import { calculateTurnGold } from './logic/gold';
-import { resolveDraftBids, buildDraftResolutionSteps } from './logic/draft';
+import { resolveDraftBids, buildDraftResolutionSteps, getUniqueCardPrice, drawRandomDraftCard } from './logic/draft';
+import { DRAFT_CATEGORY_POOLS, getDraftWeights } from './data/draftProbabilities';
+import { spinRoulette } from './lib/roulet';
 import { resolveTurn, buildTurnResolutionSteps } from './logic/turnResolver';
 import { createInitialPlayerState, applyRoleToPlayer } from './logic/playerInit';
 import { GameEngine } from './logic/gameEngine';
@@ -227,7 +229,7 @@ console.log('\n=== 3. ドラフト解決テスト ===');
   const updatedP1 = res.updatedPlayers['p1'];
 
   // G消費: 50 - 18 - 25 = 7
-  assert(updatedP1.g === 7, `P1のGがユニークA(18G)とB(25G)購入で43G消費され7Gになる、実際: ${updatedP1.g}`);
+  assert(updatedP1.g === 5, `P1のGがユニークA(20G)とB(25G)購入で45G消費され5Gになる、実際: ${updatedP1.g}`);
   assert(updatedP1.hand.length === initialHandCount + 2, `手札が2枚増加する、実際: ${updatedP1.hand.length}`);
   assert(
     updatedP1.hand.filter(c => c.cardId === 'unique_juggernaut_a').length === 2,
@@ -502,7 +504,7 @@ console.log('\n=== 8. カードテキスト能力値実数値表示テスト ===
 
   // テスト5: 減少HP参照（リジューブ・パワー）
   const desc5 = formatCardDescription(CARD_DEFINITIONS.unique_juggernaut_a.description, { maxHp: 100, hp: 70 });
-  assert(desc5.includes('減少HPの30%(=9)') || desc5.includes('減少HPの30％(=9)'), `減少HP参照の置換期待値「減少HPの30%(=9)」、実際: ${desc5}`);
+  assert(desc5.includes('減少HPの22.5%(=6.75)') || desc5.includes('減少HPの22.5％(=6.75)'), `減少HP参照の置換期待値「減少HPの22.5%(=6.75)」、実際: ${desc5}`);
 
   // テスト6: MAT/MDF参照
   const desc6 = formatCardDescription('MATの100％を攻撃値とした魔法攻撃を行う。', { mat: 15 });
@@ -878,7 +880,7 @@ console.log('\n=== 14. 固定値+参照値 全カード網羅検証テスト ===
 
   // 4. ツインスラッシュ: 14 + ATK 80% (2回)
   const twinCard = CARD_DEFINITIONS.unique_berserker_a;
-  assert(twinCard.effects[0].type === 'PHYSICAL_ATTACK' && (twinCard.effects[0] as any).baseDamage === 14 && twinCard.effects[0].multiplier === 0.8 && twinCard.effects[0].hits === 2, 'ツインスラッシュ: baseDamage=14, multiplier=0.8, hits=2');
+  assert(twinCard.effects[0].type === 'PHYSICAL_ATTACK' && (twinCard.effects[0] as any).baseDamage === 10 && twinCard.effects[0].multiplier === 0.7 && twinCard.effects[0].hits === 2, 'ツインスラッシュ: baseDamage=10, multiplier=0.7, hits=2');
 
   // 5. 捨身の突撃: 20 + ATK 200%
   const rushCard = CARD_DEFINITIONS.unique_berserker_b;
@@ -944,6 +946,358 @@ console.log('\n=== 14. 固定値+参照値 全カード網羅検証テスト ===
   assert(pRes.updatedPlayers['pv'].hp === 70, `毒ダメージ10でHPが80から70になる、実際: ${pRes.updatedPlayers['pv'].hp}`);
 
   console.log('✓ 16項目の固定値+参照値カード仕様が全て正常に定義・機能しています');
+}
+
+console.log('\n=== 15. 通常攻撃派生カード・ショップ定額購入・ドラフト重み検証テスト ===');
+{
+  // 1. ATK系統3枚の定義検証
+  const atk1 = CARD_DEFINITIONS.normal_attack_atk_1;
+  const atk2 = CARD_DEFINITIONS.normal_attack_atk_2;
+  const atk3 = CARD_DEFINITIONS.normal_attack_atk_3;
+
+  assert(atk1 && atk1.price === 5 && atk1.category === 'NORMAL', 'normal_attack_atk_1 が価格5G、category NORMALで定義されている');
+  assert(atk1.effects[0].type === 'PHYSICAL_ATTACK' && atk1.effects[0].baseDamage === 5 && atk1.effects[0].multiplier === 0.5, 'ATK系統1: 5+ATK50%');
+
+  assert(atk2 && atk2.price === 10 && atk2.category === 'NORMAL', 'normal_attack_atk_2 が価格10G、category NORMALで定義されている');
+  assert(atk2.effects[0].type === 'PHYSICAL_ATTACK' && atk2.effects[0].baseDamage === 10 && atk2.effects[0].multiplier === 1.0, 'ATK系統2: 10+ATK100%');
+
+  assert(atk3 && atk3.price === 15 && atk3.category === 'NORMAL', 'normal_attack_atk_3 が価格15G、category NORMALで定義されている');
+  assert(atk3.effects[0].type === 'PHYSICAL_ATTACK' && atk3.effects[0].baseDamage === 15 && atk3.effects[0].multiplier === 1.5, 'ATK系統3: 15+ATK150%');
+
+  // 2. MAT系統3枚の定義検証
+  const mat1 = CARD_DEFINITIONS.normal_attack_mat_1;
+  const mat2 = CARD_DEFINITIONS.normal_attack_mat_2;
+  const mat3 = CARD_DEFINITIONS.normal_attack_mat_3;
+
+  assert(mat1 && mat1.price === 5 && mat1.category === 'NORMAL', 'normal_attack_mat_1 が価格5G、category NORMALで定義されている');
+  assert(mat1.effects[0].type === 'MAGIC_ATTACK' && mat1.effects[0].baseDamage === 5 && mat1.effects[0].multiplier === 0.5 && mat1.effects[0].scaleStat === 'MAT', 'MAT系統1: 5+MAT50%');
+
+  assert(mat2 && mat2.price === 10 && mat2.category === 'NORMAL', 'normal_attack_mat_2 が価格10G、category NORMALで定義されている');
+  assert(mat2.effects[0].type === 'MAGIC_ATTACK' && mat2.effects[0].baseDamage === 10 && mat2.effects[0].multiplier === 1.0 && mat2.effects[0].scaleStat === 'MAT', 'MAT系統2: 10+MAT100%');
+
+  assert(mat3 && mat3.price === 15 && mat3.category === 'NORMAL', 'normal_attack_mat_3 が価格15G、category NORMALで定義されている');
+  assert(mat3.effects[0].type === 'MAGIC_ATTACK' && mat3.effects[0].baseDamage === 15 && mat3.effects[0].multiplier === 1.5 && mat3.effects[0].scaleStat === 'MAT', 'MAT系統3: 15+MAT150%');
+
+  // 3. getUniqueCardPrice で価格が正常取得できること
+  assert(getUniqueCardPrice('normal_attack_atk_1') === 5, 'ATK1価格5G');
+  assert(getUniqueCardPrice('normal_attack_atk_2') === 10, 'ATK2価格10G');
+  assert(getUniqueCardPrice('normal_attack_atk_3') === 15, 'ATK3価格15G');
+  assert(getUniqueCardPrice('normal_attack_mat_1') === 5, 'MAT1価格5G');
+  assert(getUniqueCardPrice('normal_attack_mat_2') === 10, 'MAT2価格10G');
+  assert(getUniqueCardPrice('normal_attack_mat_3') === 15, 'MAT3価格15G');
+
+  // 4. ドラフト解決でのショップ定額購入
+  const p1 = createInitialPlayerState('p1', 'P1', false);
+  p1.g = 40;
+  const initialHandLen = p1.hand.length;
+
+  const testBids = {
+    p1: {
+      playerId: 'p1',
+      bids: {},
+      uniquePurchases: ['normal_attack_atk_1', 'normal_attack_mat_2'], // 5G + 10G = 15G
+    },
+  };
+
+  const draftRes = resolveDraftBids([], testBids, { p1 }, 1);
+  const updated = draftRes.updatedPlayers['p1'];
+  assert(updated.g === 25, `40Gから15G消費されて25Gになる、実際: ${updated.g}`);
+  assert(updated.hand.length === initialHandLen + 2, '手札が2枚増加する');
+  assert(updated.hand.some(c => c.cardId === 'normal_attack_atk_1'), '手札に通常攻撃(ATK)【小】が存在する');
+  assert(updated.hand.some(c => c.cardId === 'normal_attack_mat_2'), '手札に通常攻撃(MAT)【中】が存在する');
+
+  // 5. ドラフトプールのプール内容検証
+  const normalPool = DRAFT_CATEGORY_POOLS.NORMAL || [];
+  assert(normalPool.length === 6, 'DRAFT_CATEGORY_POOLS.NORMAL に6枚登録されている');
+  assert(normalPool.includes('normal_attack_atk_1') && normalPool.includes('normal_attack_mat_3'), '全6枚が含まれている');
+
+  // 6. 出現重みの検証（序盤15, 中盤10, 後半5）
+  const wEarly = getDraftWeights(1);
+  const wMid = getDraftWeights(8);
+  const wLate = getDraftWeights(15);
+
+  const normalEarly = wEarly.find(w => w.category === 'NORMAL');
+  const normalMid = wMid.find(w => w.category === 'NORMAL');
+  const normalLate = wLate.find(w => w.category === 'NORMAL');
+
+  assert(normalEarly?.weight === 15, `序盤のNORMAL重みが15である、実際: ${normalEarly?.weight}`);
+  assert(normalMid?.weight === 10, `中盤のNORMAL重みが10である、実際: ${normalMid?.weight}`);
+  assert(normalLate?.weight === 5, `後半のNORMAL重みが5である、実際: ${normalLate?.weight}`);
+
+  const totalEarly = wEarly.reduce((sum, w) => sum + w.weight, 0);
+  const totalMid = wMid.reduce((sum, w) => sum + w.weight, 0);
+  const totalLate = wLate.reduce((sum, w) => sum + w.weight, 0);
+  assert(totalEarly === 115, `序盤の合計重みが115(>100)である、実際: ${totalEarly}`);
+  assert(totalMid === 110, `中盤の合計重みが110(>100)である、実際: ${totalMid}`);
+  assert(totalLate === 105, `後半の合計重みが105(>100)である、実際: ${totalLate}`);
+
+  // 7. 合計100超過でも drawRandomDraftCard が正常に抽選を行うこと（1000回抽選シミュレーション）
+  let normalCount = 0;
+  for (let i = 0; i < 1000; i++) {
+    const cardId = drawRandomDraftCard(1); // 序盤: 15 / 115 ≒ 13.04%
+    if (normalPool.includes(cardId)) {
+      normalCount++;
+    }
+  }
+  assert(normalCount > 50 && normalCount < 250, `1000回抽選でNORMALカードが${normalCount}回当選(期待値約130回)`);
+
+  // 8. spinRoulette で重みの合計が100超でもエラーなく動作すること
+  const weightsOver100 = [35, 15, 5, 25, 10, 10, 15]; // 合計115
+  let normalCategoryIdxCount = 0;
+  for (let i = 0; i < 1000; i++) {
+    const idx = spinRoulette(weightsOver100);
+    if (idx === 6) normalCategoryIdxCount++;
+  }
+  assert(normalCategoryIdxCount > 50 && normalCategoryIdxCount < 250, `spinRouletteでインデックス6が${normalCategoryIdxCount}回当選(期待値約130回)`);
+}
+
+console.log('\n=== 16. SPDステータス（確率ダメージ軽減・クリティカル回避）テスト ===');
+{
+  // 1. SPDによるクリティカル回避テスト (防御側SPD 200 => x = 24.95% => 8x = 199.6% => 100%クリティカル回避)
+  {
+    const attacker = createInitialPlayerState('p1', 'Attacker', false);
+    attacker.atk = 20;
+    attacker.clt = 100; // 100% クリティカル
+
+    const defender = createInitialPlayerState('p2', 'Defender', false);
+    defender.def = 0;
+    defender.sld = 0; // SLDなしでCLT発生条件を満たす
+    defender.spd = 200; // クリティカル回避率 8x% = 100%
+
+    const res = calculateDamage({
+      attacker,
+      target: defender,
+      damageType: 'PHYSICAL',
+      rawMultiplier: 1.0,
+      turn: 1,
+    });
+
+    assert(res.isCriticalAvoided === true, 'SPD 200の防御者がクリティカルを回避した (isCriticalAvoided === true)');
+    assert(res.isCritical === false, 'クリティカルが回避されたためisCriticalはfalse');
+  }
+
+  // 2. SPD 0 の場合クリティカル回避は発生しないテスト
+  {
+    const attacker = createInitialPlayerState('p1', 'Attacker', false);
+    attacker.atk = 20;
+    attacker.clt = 100;
+
+    const defender = createInitialPlayerState('p2', 'Defender', false);
+    defender.def = 0;
+    defender.sld = 0;
+    defender.spd = 0; // x = 0
+
+    const res = calculateDamage({
+      attacker,
+      target: defender,
+      damageType: 'PHYSICAL',
+      rawMultiplier: 1.0,
+      turn: 10,
+    });
+
+    assert(res.isCritical === true, 'SPD 0の防御者にはクリティカルがそのまま命中する');
+    assert(res.isCriticalAvoided === false, 'クリティカル回避は発生しない');
+  }
+
+  // 3. SPDステータスによるダメージ軽減率と計算の検証
+  // SPD=80, ターン=20 の場合: x = (80 / 8) - (20 * 0.05) = 10 - 1.0 = 9.0%
+  // 軽減率: 4x = 36%
+  // クリティカル回避率: 8x = 72%
+  {
+    const originalRandom = Math.random;
+    try {
+      // Math.random を固定 (0.05: 5% => x=9% 未満なので発動)
+      Math.random = () => 0.05;
+
+      const attacker = createInitialPlayerState('p1', 'Attacker', false);
+      attacker.atk = 20;
+
+      const defender = createInitialPlayerState('p2', 'Defender', false);
+      defender.def = 0;
+      defender.sld = 0;
+      defender.spd = 80;
+
+      // ターン20での基本ダメージ: 20 * (100 / (100 + 0 + (20 - 20))) = 20
+      // 36% 軽減: 20 * (1 - 0.36) = 12.8 => floor(12.8) = 12
+      const res = calculateDamage({
+        attacker,
+        target: defender,
+        damageType: 'PHYSICAL',
+        rawMultiplier: 1.0,
+        turn: 20,
+      });
+
+      assert(res.isSpdDamageReduced === true, 'SPDによるダメージ軽減が発動した');
+      assert(res.spdReductionPercent === 36, `軽減率は4x% = 36%、実際: ${res.spdReductionPercent}`);
+      assert(res.finalDamage === 12, `36%軽減によりダメージが20から12になる、実際: ${res.finalDamage}`);
+    } finally {
+      Math.random = originalRandom;
+    }
+  }
+
+  // 4. 魔法攻撃に対するSPDダメージ軽減の検証
+  {
+    const originalRandom = Math.random;
+    try {
+      Math.random = () => 0.05; // 発動
+
+      const attacker = createInitialPlayerState('p1', 'Attacker', false);
+      attacker.mat = 30;
+
+      const defender = createInitialPlayerState('p2', 'Defender', false);
+      defender.mdf = 0;
+      defender.sld = 0;
+      defender.spd = 80;
+
+      // ターン20での魔法ダメージ: 30 * (100 / 100) = 30
+      // 36% 軽減: 30 * 0.64 = 19.2 => floor(19.2) = 19
+      const res = calculateDamage({
+        attacker,
+        target: defender,
+        damageType: 'MAGIC',
+        rawMultiplier: 1.0,
+        turn: 20,
+      });
+
+      assert(res.isSpdDamageReduced === true, '魔法攻撃に対してもSPDダメージ軽減が発動した');
+      assert(res.finalDamage === 19, `魔法ダメージ30が36%軽減で19になる、実際: ${res.finalDamage}`);
+    } finally {
+      Math.random = originalRandom;
+    }
+  }
+
+  // 5. ターン解決時のログおよびBattleEvent反映テスト
+  {
+    const originalRandom = Math.random;
+    try {
+      // 1回目のMath.random (CLT判定: effectiveClt=100 なので何でも当たる) => 0.05
+      // 2回目のMath.random (クリティカル回避判定: 8x%=72% なので 0.05 < 0.72 で回避成功)
+      // 3回目のMath.random (SPD軽減判定: x%=9% なので 0.05 < 0.09 で軽減発動)
+      Math.random = () => 0.05;
+
+      const p1 = createInitialPlayerState('p1', 'Attacker', false);
+      p1.atk = 20;
+      p1.clt = 100;
+      p1.hand = [{ instanceId: 'a1', cardId: 'normal_attack' }];
+
+      const p2 = createInitialPlayerState('p2', 'Defender', false);
+      p2.def = 0;
+      p2.sld = 0;
+      p2.spd = 80;
+
+      const res = resolveTurn(
+        { p1, p2 },
+        { p1: { playerId: 'p1', cardInstanceId: 'a1', targetPlayerId: 'p2' } },
+        20
+      );
+
+      const hitLog = res.logs.find(l => l.text.includes('【クリティカル回避！】'));
+      assert(!!hitLog, 'ターンログに【クリティカル回避！】が含まれている');
+      assert(hitLog!.text.includes('(SPDにより36%軽減)'), `ターンログに軽減率表記が含まれている、実際: ${hitLog!.text}`);
+
+      // buildTurnResolutionSteps での event.isCriticalAvoided と title の検証
+      const steps = buildTurnResolutionSteps(
+        { p1, p2 },
+        { p1: { playerId: 'p1', cardInstanceId: 'a1', targetPlayerId: 'p2' } },
+        20
+      );
+      const hitEvent = steps.find(s => s.event.type === 'ATTACK_HIT')?.event;
+      assert(!!hitEvent, 'ATTACK_HITイベントが存在する');
+      assert(hitEvent!.isCriticalAvoided === true, 'イベントにisCriticalAvoidedが反映されている');
+      assert(hitEvent!.isSpdDamageReduced === true, 'イベントにisSpdDamageReducedが反映されている');
+      assert(hitEvent!.title === '痛恨回避！', `イベントタイトルが「痛恨回避！」である、実際: ${hitEvent!.title}`);
+    } finally {
+      Math.random = originalRandom;
+    }
+  }
+}
+
+console.log('\n=== 17. スピードスター「アクセル・ビート」命中時SPD+1.5テスト ===');
+{
+  const accelCard = CARD_DEFINITIONS.unique_speedstar_a;
+  const firstEffect = accelCard.effects[0];
+  assert(
+    firstEffect.type === 'PHYSICAL_ATTACK' &&
+    firstEffect.spdGainOnHit === 1.5,
+    'アクセル・ビートのspdGainOnHitが1.5であること'
+  );
+  assert(
+    accelCard.description.includes('SPDを+1.5'),
+    `説明文に「SPDを+1.5」が含まれていること、実際: ${accelCard.description}`
+  );
+
+  // 命中時のSPD上昇テスト（スピードスターのパッシブにより2回発動で +1.5 × 2 = +3.0）
+  {
+    const p1 = createInitialPlayerState('p1', 'Speedstar', false);
+    applyRoleToPlayer(p1, 'speedstar');
+    const initialSpd = p1.spd; // 18
+    p1.hand = [{ instanceId: 'accel_1', cardId: 'unique_speedstar_a' }];
+
+    const p2 = createInitialPlayerState('p2', 'Target', false);
+    p2.hp = 200;
+    p2.maxHp = 200;
+
+    const res = resolveTurn(
+      { p1, p2 },
+      { p1: { playerId: 'p1', cardInstanceId: 'accel_1', targetPlayerId: 'p2' } },
+      1
+    );
+
+    const updatedP1 = res.updatedPlayers.p1;
+    assert(
+      updatedP1.spd === initialSpd + 3.0,
+      `2回命中によりSPDが+3.0されていること（期待値: ${initialSpd + 3.0}、実際: ${updatedP1.spd}）`
+    );
+
+    const spdLogs = res.logs.filter(l => l.text.includes('SPDが 1.5 上昇した'));
+    assert(spdLogs.length === 2, `SPD上昇ログが2回分記録されていること、実際: ${spdLogs.length}回`);
+    assert(spdLogs[0].text.includes('18 → 19.5'), `1回目のログに 18 → 19.5 が含まれること、実際: ${spdLogs[0].text}`);
+    assert(spdLogs[1].text.includes('19.5 → 21'), `2回目のログに 19.5 → 21 が含まれること、実際: ${spdLogs[1].text}`);
+
+    // steps の event も確認
+    const stepP1 = createInitialPlayerState('p1', 'Speedstar', false);
+    applyRoleToPlayer(stepP1, 'speedstar');
+    stepP1.hand = [{ instanceId: 'accel_1', cardId: 'unique_speedstar_a' }];
+    const stepP2 = createInitialPlayerState('p2', 'Target', false);
+    stepP2.hp = 200;
+    stepP2.maxHp = 200;
+
+    const stepsReal = buildTurnResolutionSteps(
+      { p1: stepP1, p2: stepP2 },
+      { p1: { playerId: 'p1', cardInstanceId: 'accel_1', targetPlayerId: 'p2' } },
+      1
+    );
+
+    const buffEvents = stepsReal.filter(s => s.event.type === 'BUFF' && s.event.title === 'SPD上昇');
+    assert(buffEvents.length === 2, `ステップ中にSPD上昇イベントが2回発生していること、実際: ${buffEvents.length}`);
+  }
+
+  // 回避時にはSPDが上昇しないテスト
+  {
+    const p1 = createInitialPlayerState('p1', 'Speedstar', false);
+    applyRoleToPlayer(p1, 'speedstar');
+    const initialSpd = p1.spd;
+    p1.hand = [{ instanceId: 'accel_1', cardId: 'unique_speedstar_a' }];
+
+    const p2 = createInitialPlayerState('p2', 'Dodger', false);
+    p2.hp = 200;
+    p2.maxHp = 200;
+    p2.evasion = 100; // 100%回避
+
+    const res = resolveTurn(
+      { p1, p2 },
+      { p1: { playerId: 'p1', cardInstanceId: 'accel_1', targetPlayerId: 'p2' } },
+      1
+    );
+
+    const updatedP1 = res.updatedPlayers.p1;
+    assert(
+      updatedP1.spd === initialSpd,
+      `回避時はSPDが上昇しないこと（期待値: ${initialSpd}、実際: ${updatedP1.spd}）`
+    );
+    const spdLogs = res.logs.filter(l => l.text.includes('SPDが 1.5 上昇した'));
+    assert(spdLogs.length === 0, `回避時はSPD上昇ログが記録されないこと、実際: ${spdLogs.length}回`);
+  }
 }
 
 console.log('\n全テストが正常に通過しました！');

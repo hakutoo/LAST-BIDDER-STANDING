@@ -6,6 +6,14 @@ export interface DraftCategoryWeight {
 }
 
 export const DRAFT_CATEGORY_POOLS: { [key in CardCategory]?: string[] } = {
+  NORMAL: [
+    'normal_attack_atk_1',
+    'normal_attack_atk_2',
+    'normal_attack_atk_3',
+    'normal_attack_mat_1',
+    'normal_attack_mat_2',
+    'normal_attack_mat_3',
+  ],
   STATUS_SMALL: [
     'stat_small_hp',
     'stat_small_atk',
@@ -53,6 +61,8 @@ export const DRAFT_CATEGORY_POOLS: { [key in CardCategory]?: string[] } = {
   ],
   HEAL: [
     'draft_heal_powder',
+    'draft_heal_powder_2',
+    'draft_heal_powder_3',
   ],
 };
 
@@ -64,7 +74,8 @@ export function getDraftWeights(turn: number): DraftCategoryWeight[] {
       { category: 'STATUS_LARGE', weight: 5 },
       { category: 'ACTIVE', weight: 25 },
       { category: 'COUNTER', weight: 10 },
-      { category: 'HEAL', weight: 10 },
+      { category: 'HEAL', weight: 18 },
+      { category: 'NORMAL', weight: 15 },
     ];
   } else if (turn <= 10) {
     return [
@@ -73,7 +84,8 @@ export function getDraftWeights(turn: number): DraftCategoryWeight[] {
       { category: 'STATUS_LARGE', weight: 10 },
       { category: 'ACTIVE', weight: 20 },
       { category: 'COUNTER', weight: 10 },
-      { category: 'HEAL', weight: 10 },
+      { category: 'HEAL', weight: 18 },
+      { category: 'NORMAL', weight: 10 },
     ];
   } else {
     return [
@@ -82,7 +94,8 @@ export function getDraftWeights(turn: number): DraftCategoryWeight[] {
       { category: 'STATUS_LARGE', weight: 25 },
       { category: 'ACTIVE', weight: 25 },
       { category: 'COUNTER', weight: 15 },
-      { category: 'HEAL', weight: 10 },
+      { category: 'HEAL', weight: 18 },
+      { category: 'NORMAL', weight: 5 },
     ];
   }
 }
