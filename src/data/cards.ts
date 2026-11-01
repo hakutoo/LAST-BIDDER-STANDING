@@ -33,9 +33,9 @@ export const CARD_DEFINITIONS: { [id: string]: CardDefinition } = {
     category: 'UNIQUE_A',
     priority: 'HIGH',
     targetType: 'SELF',
-    description: '自身の減少HPの30%を即座に回復する。',
+    description: '自身の減少HPの22.5%を即座に回復する。',
     effects: [
-      { type: 'HEAL', amount: 30, isPercentMissingHp: true },
+      { type: 'HEAL', amount: 22.5, isPercentMissingHp: true },
     ],
   },
   unique_juggernaut_b: {
