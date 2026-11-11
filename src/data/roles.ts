@@ -64,8 +64,8 @@ export const ROLE_DEFINITIONS: { [id: string]: RoleDefinition } = {
   mage: {
     id: 'mage',
     name: 'メイジ',
-    passiveName: 'スペルチャージ',
-    passiveDescription: 'ユニークカードAを使用した場合、次に行う魔法攻撃の威力を1.75倍にする。',
+    passiveName: 'アルケイン・ピアース',
+    passiveDescription: '((自身のMAT)*0.25)の魔法防御貫通（固定値貫通）を得る。',
     passiveType: 'MAGE_PASSIVE',
     initialStats: {
       hp: 80,

@@ -120,10 +120,10 @@ console.log('=== 1. ダメージ計算テスト ===');
   assert(res.finalDamage === 16, `固定値10+ATK50%ダメージ期待値16、実際: ${res.finalDamage}`);
 }
 
-// テスト4: メイジのスペルチャージ (1.75倍)
+// テスト4: ユニークAマナチャージ (1.75倍) と メイジパッシブ「アルケイン・ピアース」
 {
   const p1 = createInitialPlayerState('p1', 'P1', false);
-  applyRoleToPlayer(p1, 'mage');
+  // 非メイジ（マナチャージバフ単体）
   p1.mat = 20;
   p1.buffs.push({ id: 'b1', type: 'SPELL_CHARGE', duration: -1 });
 
@@ -139,7 +139,50 @@ console.log('=== 1. ダメージ計算テスト ===');
     rawMultiplier: 1.0,
     turn: 1,
   });
-  assert(res.finalDamage === 28, `スペルチャージ魔法ダメージ期待値28、実際: ${res.finalDamage}`);
+  assert(res.finalDamage === 28, `マナチャージ魔法ダメージ期待値28、実際: ${res.finalDamage}`);
+  assert(res.spellChargeUsed === true, 'マナチャージバフが使用された');
+
+  // 4-2: メイジのパッシブ「アルケイン・ピアース」 ((自身のMAT)*0.25) の固定値貫通
+  const mage = createInitialPlayerState('mage', 'Mage', false);
+  applyRoleToPlayer(mage, 'mage'); // mat: 20, 貫通: 20 * 0.25 = 5
+  mage.mat = 20;
+
+  const targetMdf10 = createInitialPlayerState('target', 'Target', false);
+  targetMdf10.mdf = 10;
+  targetMdf10.sld = 0;
+
+  // ターン1: 20 * 1.0 = 20
+  // 実効MDF: 10 - 5 = 5
+  // 防御軽減: 20 * (100 / (100 + 5 + 19)) = 20 * (100 / 124) = 16.129... => 16
+  const res2 = calculateDamage({
+    attacker: mage,
+    target: targetMdf10,
+    damageType: 'MAGIC',
+    rawMultiplier: 1.0,
+    turn: 1,
+  });
+  assert(res2.mdfPenetration === 5, `アルケイン・ピアースMDF貫通量期待値5、実際: ${res2.mdfPenetration}`);
+  assert(res2.finalDamage === 16, `アルケイン・ピアース魔法ダメージ期待値16、実際: ${res2.finalDamage}`);
+
+  // 4-3: アルケイン・ピアース + マナチャージ (SPELL_CHARGE) 複合
+  mage.buffs.push({ id: 'b2', type: 'SPELL_CHARGE', duration: -1 });
+  const targetMdf5 = createInitialPlayerState('target5', 'Target5', false);
+  targetMdf5.mdf = 5;
+  targetMdf5.sld = 0;
+
+  // ターン1: 20 * 1.0 * 1.75 = 35
+  // 実効MDF: max(0, 5 - 5) = 0
+  // 防御軽減: 35 * (100 / (100 + 0 + 19)) = 35 * (100 / 119) = 29.41... => 29
+  const res3 = calculateDamage({
+    attacker: mage,
+    target: targetMdf5,
+    damageType: 'MAGIC',
+    rawMultiplier: 1.0,
+    turn: 1,
+  });
+  assert(res3.mdfPenetration === 5, `複合MDF貫通量期待値5、実際: ${res3.mdfPenetration}`);
+  assert(res3.finalDamage === 29, `複合魔法ダメージ期待値29、実際: ${res3.finalDamage}`);
+  assert(res3.spellChargeUsed === true, 'マナチャージバフが使用された');
 }
 
 // テスト5: イージスのSLD存在時20%軽減
@@ -1027,9 +1070,9 @@ console.log('\n=== 15. 通常攻撃派生カード・ショップ定額購入・
   const totalEarly = wEarly.reduce((sum, w) => sum + w.weight, 0);
   const totalMid = wMid.reduce((sum, w) => sum + w.weight, 0);
   const totalLate = wLate.reduce((sum, w) => sum + w.weight, 0);
-  assert(totalEarly === 115, `序盤の合計重みが115(>100)である、実際: ${totalEarly}`);
-  assert(totalMid === 110, `中盤の合計重みが110(>100)である、実際: ${totalMid}`);
-  assert(totalLate === 105, `後半の合計重みが105(>100)である、実際: ${totalLate}`);
+  assert(totalEarly === 123, `序盤の合計重みが123(>100)である、実際: ${totalEarly}`);
+  assert(totalMid === 118, `中盤の合計重みが118(>100)である、実際: ${totalMid}`);
+  assert(totalLate === 113, `後半の合計重みが113(>100)である、実際: ${totalLate}`);
 
   // 7. 合計100超過でも drawRandomDraftCard が正常に抽選を行うこと（1000回抽選シミュレーション）
   let normalCount = 0;

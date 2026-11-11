@@ -1,4 +1,4 @@
-﻿import type { CardDefinition } from '../types/cards';
+import type { CardDefinition } from '../types/cards';
 import type { GameLogEntry, PlayerAction, PlayerState, BattleEvent } from '../types/game';
 import { CARD_DEFINITIONS } from '../data/cards';
 import { calculateDamage } from './damage';
@@ -300,7 +300,7 @@ export function buildTurnResolutionSteps(
             isCritical: dmgRes.isCritical,
           };
 
-          // メイジのスペルチャージ消費
+          // マナチャージ（SPELL_CHARGE）消費
           if (dmgRes.spellChargeUsed) {
             actor.buffs = actor.buffs.filter(b => b.type !== 'SPELL_CHARGE');
           }
@@ -910,11 +910,11 @@ export function buildTurnResolutionSteps(
       }
     }
 
-    // メイジのユニークAを使用した場合は次回魔法威力1.75倍バフ付与
+    // ユニークA「マナチャージ」を使用した場合は次回魔法威力1.75倍バフ付与
     if (cardDef.id === 'unique_mage_a') {
       if (!actor.buffs.some(b => b.type === 'SPELL_CHARGE')) {
         actor.buffs.push({ id: `buff_${Math.random()}`, type: 'SPELL_CHARGE', duration: -1 });
-        const chargeMsg = `【スペルチャージ】${actor.name} は魔力をチャージした！(次回魔法攻撃1.75倍)`;
+        const chargeMsg = `【マナチャージ】${actor.name} は魔力をチャージした！(次回魔法攻撃1.75倍)`;
         pushStep(
           steps,
           updatedPlayers,
@@ -929,7 +929,7 @@ export function buildTurnResolutionSteps(
             type: 'BUFF',
             actorId: actor.id,
             actorName: actor.name,
-            title: 'スペルチャージ',
+            title: 'マナチャージ',
             description: chargeMsg,
           }
         );

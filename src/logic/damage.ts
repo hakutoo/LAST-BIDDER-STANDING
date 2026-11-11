@@ -33,6 +33,7 @@ export interface DamageResult {
   berserkerBonus: number;
   spellChargeUsed: boolean;
   inquisitorHealAmount: number;
+  mdfPenetration?: number;
 }
 
 export function calculateDamage(ctx: AttackContext): DamageResult {
@@ -54,6 +55,7 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     berserkerBonus: 0,
     spellChargeUsed: false,
     inquisitorHealAmount: 0,
+    mdfPenetration: 0,
   };
 
   // 1. 回避判定 (物理攻撃のみ、回避判定が最優先)
@@ -101,7 +103,7 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
   let currentMultiplier = rawMultiplier;
   let currentBaseDamage = baseDamage ?? 0;
 
-  // メイジのパッシブ「スペルチャージ」チェック (魔法攻撃かつスペルチャージバフあり)
+  // ユニークA「マナチャージ」（SPELL_CHARGEバフ）チェック (魔法攻撃かつスペルチャージバフあり)
   const spellChargeBuff = attacker.buffs.find(b => b.type === 'SPELL_CHARGE');
   if (damageType === 'MAGIC' && spellChargeBuff) {
     currentMultiplier *= GAME_CONFIG.MAGE_SPELL_CHARGE_MULTIPLIER;
@@ -150,8 +152,14 @@ export function calculateDamage(ctx: AttackContext): DamageResult {
     const defense = Math.max(0, target.def);
     damageAfterDefense = attackValue * (100 / (100 + defense + turnMod));
   } else {
-    const mdf = Math.max(0, target.mdf);
-    damageAfterDefense = attackValue * (100 / (100 + mdf + turnMod));
+    // メイジのパッシブ「アルケイン・ピアース」: ((自身のMAT)*0.25) の魔法防御貫通（固定値貫通）
+    let mdfPenetration = 0;
+    if (attacker.roleId === 'mage') {
+      mdfPenetration = attacker.mat * GAME_CONFIG.MAGE_MAGIC_PENETRATION_RATE;
+      result.mdfPenetration = mdfPenetration;
+    }
+    const effectiveMdf = Math.max(0, target.mdf - mdfPenetration);
+    damageAfterDefense = attackValue * (100 / (100 + effectiveMdf + turnMod));
   }
 
   // 5. パッシブ効果によるダメージの増減を適用する。
