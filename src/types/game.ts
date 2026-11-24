@@ -102,6 +102,16 @@ export interface GameLogEntry {
   visibleToPlayerId?: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  roleId: string | null;
+  text: string;
+  timestamp: number;
+  isSystem?: boolean;
+}
+
 export interface GoldDistributionEvent {
   playerId: string;
   playerName: string;
@@ -190,6 +200,7 @@ export interface GameState {
   draftBids: { [playerId: string]: DraftBid };
   playerActions: { [playerId: string]: PlayerAction };
   logs: GameLogEntry[];
+  chatMessages: ChatMessage[];
   winnerId: string | null | 'DRAW' | 'FORCE_QUIT'; // null = 未決着, 'DRAW' = 引き分け, 'FORCE_QUIT' = 強制終了
   phaseDeadline: number | null; // UNIX timestamp ms
   activeGoldEvent: GoldDistributionEvent | null;

@@ -12,7 +12,8 @@ import { GoldDistributionView } from './components/GoldDistributionView';
 import { DraftResolutionView } from './components/DraftResolutionView';
 import { HandDock } from './components/HandDock';
 import { GameMenuModal } from './components/GameMenuModal';
-import type { DraftBid, PlayerAction } from './types/game';
+import { InGameChat, ChatNotificationToast } from './components/InGameChat';
+import type { DraftBid, PlayerAction, ChatMessage } from './types/game';
 import { ROLE_DEFINITIONS } from './data/roles';
 import { CARD_DEFINITIONS } from './data/cards';
 import { clampPlayerName } from './utils/nameValidator';
@@ -36,6 +37,12 @@ export const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [menuTab, setMenuTab] = useState<'MENU' | 'LOG' | 'RULE'>('MENU');
   const [lastReadLogCount, setLastReadLogCount] = useState<number>(0);
+
+  // チャット管理
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [lastReadChatTimestamp, setLastReadChatTimestamp] = useState<number>(0);
+  const [latestIncomingChat, setLatestIncomingChat] = useState<ChatMessage | null>(null);
+  const prevLastChatIdRef = useRef<string | null>(null);
 
   // 同期されるゲームステート
   const [syncData, setSyncData] = useState<ClientSyncData | null>(null);
@@ -174,6 +181,9 @@ export const App: React.FC = () => {
       case 'SKIP_RESOLUTION':
         engine.skipResolution();
         break;
+      case 'SEND_CHAT':
+        engine.addChatMessage(clientId, msg.text);
+        break;
     }
   };
 
@@ -208,6 +218,10 @@ export const App: React.FC = () => {
     setIsConnecting(false);
     setReconnectingCountdown(null);
     setIsMenuOpen(false);
+    setIsChatOpen(false);
+    setLastReadChatTimestamp(0);
+    setLatestIncomingChat(null);
+    prevLastChatIdRef.current = null;
   };
 
   // 1. 部屋作成（ホスト）
@@ -405,6 +419,53 @@ export const App: React.FC = () => {
     }
   }, [currentPhase]);
 
+  // チャット管理ハンドラ
+  const chatMessages = syncData?.chatMessages || [];
+  const unreadChatCount = isChatOpen
+    ? 0
+    : chatMessages.filter(
+        (m) => m.timestamp > lastReadChatTimestamp && m.senderId !== effectiveMyId
+      ).length;
+
+  // 新着チャットのトースト通知検知
+  useEffect(() => {
+    if (chatMessages.length === 0) return;
+    const lastMsg = chatMessages[chatMessages.length - 1];
+    if (prevLastChatIdRef.current && prevLastChatIdRef.current !== lastMsg.id) {
+      if (!isChatOpen && lastMsg.senderId !== effectiveMyId) {
+        setLatestIncomingChat(lastMsg);
+      } else if (isChatOpen) {
+        setLastReadChatTimestamp(lastMsg.timestamp);
+      }
+    }
+    prevLastChatIdRef.current = lastMsg.id;
+  }, [chatMessages, isChatOpen, effectiveMyId]);
+
+  const handleOpenChat = () => {
+    setIsChatOpen(true);
+    setLatestIncomingChat(null);
+    if (chatMessages.length > 0) {
+      setLastReadChatTimestamp(chatMessages[chatMessages.length - 1].timestamp);
+    }
+  };
+
+  const handleCloseChat = () => {
+    setIsChatOpen(false);
+    if (chatMessages.length > 0) {
+      setLastReadChatTimestamp(chatMessages[chatMessages.length - 1].timestamp);
+    }
+  };
+
+  const handleSendChat = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (isHost && engineRef.current) {
+      engineRef.current.addChatMessage(effectiveMyId, trimmed);
+    } else {
+      network.sendToHost({ type: 'SEND_CHAT', text: trimmed });
+    }
+  };
+
   // ログ閲覧ハンドラ
   const totalLogs = syncData?.logs.length || 0;
   const hasUnreadLogs = totalLogs > lastReadLogCount;
@@ -430,8 +491,7 @@ export const App: React.FC = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(18, 16, 13, 0.9)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -439,31 +499,46 @@ export const App: React.FC = () => {
           padding: '20px',
         }}>
           <div style={{
-            backgroundColor: '#1e293b',
-            border: '2px solid #eab308',
-            borderRadius: '12px',
+            backgroundColor: '#1C1915',
+            border: '3px double #4A4234',
             padding: '28px',
             maxWidth: '460px',
             width: '100%',
             textAlign: 'center',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            boxShadow: '6px 6px 0 #000',
           }}>
-            <div style={{ fontSize: '2.4em', marginBottom: '12px' }}>🔄</div>
-            <h3 style={{ margin: '0 0 10px 0', color: '#facc15', fontSize: '1.25em' }}>
+            <div style={{
+              display: 'inline-block',
+              border: '1px solid #B9975B',
+              color: '#B9975B',
+              fontFamily: '"IBM Plex Mono", monospace',
+              fontSize: '0.8em',
+              padding: '2px 8px',
+              marginBottom: '12px',
+            }}>
+              RECONNECTING
+            </div>
+            <h3 style={{
+              margin: '0 0 10px 0',
+              color: '#E9DFC8',
+              fontSize: '1.3em',
+              fontFamily: '"Shippori Mincho B1", serif',
+              fontWeight: 700,
+            }}>
               ホストとの接続を再確立中...
             </h3>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9em', lineHeight: '1.6', margin: '0 0 16px 0' }}>
+            <p style={{ color: '#A79B7E', fontSize: '0.88em', lineHeight: '1.6', margin: '0 0 16px 0' }}>
               ホストが別アプリを開いているか、通信環境が一時的に不安定です。<br />
               自動で再接続を試行しています。このままお待ちください...
             </p>
             <div style={{
               display: 'inline-block',
-              backgroundColor: '#0f172a',
-              border: '1px solid #334155',
+              backgroundColor: '#12100D',
+              border: '1px solid #4A4234',
               padding: '8px 18px',
-              borderRadius: '20px',
-              color: '#38bdf8',
-              fontWeight: 'bold',
+              color: '#B9975B',
+              fontWeight: 700,
+              fontFamily: '"IBM Plex Mono", monospace',
               fontSize: '1em',
               marginBottom: '20px',
             }}>
@@ -472,14 +547,10 @@ export const App: React.FC = () => {
             <div>
               <button
                 onClick={handleBackToTitle}
+                className="btn-sub"
                 style={{
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  backgroundColor: '#475569',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
                   fontSize: '0.85em',
+                  padding: '6px 14px',
                 }}
               >
                 待機をやめてタイトルに戻る
@@ -491,7 +562,7 @@ export const App: React.FC = () => {
 
       {/* 入室前・ロビー・ロール選択 */}
       {(!syncData || currentPhase === 'LOBBY' || currentPhase === 'ROLE_SELECT') ? (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', color: '#f8fafc', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '16px', color: '#E9DFC8', minHeight: '100vh' }}>
           <LobbyView
             phase={currentPhase}
             roomCode={roomCode}
@@ -516,42 +587,79 @@ export const App: React.FC = () => {
           {/* ヘッダー情報（コンパクト・固定） */}
           <div className="game-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.05em', fontWeight: 'bold' }}>第{syncData.turn}T</span>
-              <span style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: '0.8em', color: '#38bdf8', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '1.05em', fontWeight: 700, fontFamily: '"IBM Plex Mono", monospace' }}>
+                第{syncData.turn}T
+              </span>
+              <span style={{
+                padding: '2px 8px',
+                backgroundColor: '#12100D',
+                border: '1px solid #4A4234',
+                fontSize: '0.78em',
+                color: '#B9975B',
+                fontWeight: 700,
+              }}>
                 {currentPhase === 'GOLD_DISTRIBUTION' ? '給与' : currentPhase === 'DRAFT' ? 'ドラフト' : currentPhase === 'RESOLVING_DRAFT' ? 'ドラフト結果' : currentPhase === 'ACTION' ? '行動選択' : currentPhase === 'RESOLVING' ? '行動解決中' : currentPhase === 'ROUND_RESULT' ? '結果確認' : currentPhase}
               </span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
-                ID:<b style={{ color: '#38bdf8' }}>{roomCode}</b>
+              <span style={{ fontSize: '0.8em', color: '#A79B7E' }}>
+                ID:<b style={{ color: '#B9975B', fontFamily: '"IBM Plex Mono", monospace', marginLeft: '4px' }}>{roomCode}</b>
               </span>
+
+              {/* クイックチャットボタン */}
+              <button
+                onClick={handleOpenChat}
+                aria-label="チャットを開く"
+                className="btn-normal"
+                style={{
+                  position: 'relative',
+                  padding: '4px 10px',
+                  fontSize: '0.8em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderColor: unreadChatCount > 0 ? '#B9975B' : '#4A4234',
+                }}
+              >
+                <span>会話</span>
+                {unreadChatCount > 0 && (
+                  <span
+                    style={{
+                      backgroundColor: '#B3352B',
+                      color: '#E9DFC8',
+                      padding: '1px 5px',
+                      fontSize: '0.75em',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      fontFamily: '"IBM Plex Mono", monospace',
+                    }}
+                  >
+                    {unreadChatCount}
+                  </span>
+                )}
+              </button>
 
               {/* クイックログボタン */}
               <button
                 onClick={handleOpenLogs}
+                className="btn-normal"
                 style={{
                   position: 'relative',
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                  color: '#f8fafc',
-                  borderRadius: '6px',
-                  padding: '5px 10px',
+                  padding: '4px 10px',
                   fontSize: '0.8em',
-                  cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '6px',
                 }}
               >
-                <span>📜 ログ</span>
+                <span>記録</span>
                 {hasUnreadLogs && (
                   <span
                     style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      backgroundColor: '#ef4444',
+                      width: '6px',
+                      height: '6px',
+                      backgroundColor: '#B3352B',
                       display: 'inline-block',
                     }}
                   />
@@ -562,18 +670,13 @@ export const App: React.FC = () => {
               <button
                 onClick={handleOpenMenu}
                 aria-label="メニューを開く"
+                className="btn-normal"
                 style={{
-                  backgroundColor: '#334155',
-                  border: '1px solid #475569',
-                  color: '#fff',
-                  borderRadius: '6px',
-                  padding: '5px 10px',
-                  fontSize: '1em',
-                  cursor: 'pointer',
-                  lineHeight: 1,
+                  padding: '4px 8px',
+                  fontSize: '0.8em',
                 }}
               >
-                ☰
+                目録
               </button>
             </div>
           </div>
@@ -596,27 +699,82 @@ export const App: React.FC = () => {
           <div className="game-main-content">
             {/* ゲーム終了画面 */}
             {currentPhase === 'GAME_OVER' && (
-              <div style={{ backgroundColor: '#1e293b', padding: '24px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '2px solid #eab308' }}>
-                <h2 style={{ fontSize: '1.8em', margin: '0 0 12px 0', color: '#facc15' }}>
+              <div style={{
+                backgroundColor: '#1C1915',
+                padding: '24px',
+                border: '3px double #4A4234',
+                textAlign: 'center',
+                marginBottom: '16px',
+                boxShadow: '4px 4px 0 #000',
+              }}>
+                <h2 style={{
+                  fontSize: '1.8em',
+                  margin: '0 0 12px 0',
+                  color: '#B9975B',
+                  fontFamily: '"Shippori Mincho B1", serif',
+                  fontWeight: 700,
+                }}>
                   ゲーム終了！
                 </h2>
-                <div style={{ fontSize: '1.2em', marginBottom: '16px' }}>
+                <div style={{ fontSize: '1.1em', marginBottom: '18px' }}>
                   {syncData.winnerId === 'DRAW' ? (
-                    <span style={{ color: '#ef4444' }}>引き分け！ 全員力尽きました！</span>
+                    <span style={{ color: '#B3352B', fontWeight: 700 }}>引き分け！ 全員力尽きました！</span>
                   ) : syncData.winnerId === 'FORCE_QUIT' ? (
-                    <span style={{ color: '#ef4444' }}>⚠️ ホストにより試合が強制終了されました。</span>
+                    <span style={{ color: '#B3352B', fontWeight: 700 }}>[中断] ホストにより試合が強制終了されました。</span>
                   ) : (
                     <span>
-                      勝者：<b style={{ color: '#4ade80' }}>{syncData.players[syncData.winnerId!]?.name}</b> の勝利です！
+                      勝者：<b style={{ color: '#B9975B', fontFamily: '"Shippori Mincho B1", serif', fontSize: '1.15em' }}>{syncData.players[syncData.winnerId!]?.name}</b> の勝利です！
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={handleBackToTitle}
-                  style={{ padding: '10px 24px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  タイトルへ戻る
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={handleOpenChat}
+                    className="btn-normal"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.9em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <span>会話</span>
+                    {unreadChatCount > 0 && (
+                      <span
+                        style={{
+                          backgroundColor: '#B3352B',
+                          color: '#E9DFC8',
+                          padding: '1px 5px',
+                          fontSize: '0.75em',
+                          fontFamily: '"IBM Plex Mono", monospace',
+                        }}
+                      >
+                        {unreadChatCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleOpenLogs}
+                    className="btn-normal"
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '0.9em',
+                    }}
+                  >
+                    戦闘記録を振り返る
+                  </button>
+                  <button
+                    onClick={handleBackToTitle}
+                    className="btn-primary"
+                    style={{
+                      padding: '8px 22px',
+                      fontSize: '0.9em',
+                    }}
+                  >
+                    タイトルへ戻る
+                  </button>
+                </div>
               </div>
             )}
 
@@ -676,10 +834,24 @@ export const App: React.FC = () => {
             )}
 
             {currentPhase === 'ROUND_RESULT' && (
-              <div style={{ backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', textAlign: 'center', marginBottom: '16px', border: '1px solid #334155' }}>
-                <h3 style={{ margin: '0 0 6px 0', color: '#38bdf8' }}>ターンの行動が終了しました</h3>
-                <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.85em' }}>
-                  右上の【📜 ログ】または【☰ メニュー】からバトルの詳細を確認できます。間もなく次のドラフトが開始されます...
+              <div style={{
+                backgroundColor: '#1C1915',
+                padding: '16px',
+                border: '1px solid #4A4234',
+                textAlign: 'center',
+                marginBottom: '16px',
+                boxShadow: '2px 2px 0 #000',
+              }}>
+                <h3 style={{
+                  margin: '0 0 6px 0',
+                  color: '#B9975B',
+                  fontFamily: '"Shippori Mincho B1", serif',
+                  fontSize: '1.1em',
+                }}>
+                  ターンの行動が終了しました
+                </h3>
+                <p style={{ color: '#A79B7E', margin: 0, fontSize: '0.85em' }}>
+                  右上の【記録】または【目録】からバトルの詳細を確認できます。間もなく次のドラフトが開始されます...
                 </p>
               </div>
             )}
@@ -705,6 +877,24 @@ export const App: React.FC = () => {
             onForceEndGame={handleForceEndGame}
             roomCode={roomCode}
             initialTab={menuTab}
+            onOpenChat={handleOpenChat}
+            chatCount={chatMessages.length}
+          />
+
+          {/* 試合中チャットサイドバー / モーダル */}
+          <InGameChat
+            isOpen={isChatOpen}
+            onClose={handleCloseChat}
+            messages={chatMessages}
+            myId={effectiveMyId}
+            onSendMessage={handleSendChat}
+          />
+
+          {/* 新着チャットトースト通知 */}
+          <ChatNotificationToast
+            message={latestIncomingChat}
+            onOpenChat={handleOpenChat}
+            onDismiss={() => setLatestIncomingChat(null)}
           />
         </div>
       )}

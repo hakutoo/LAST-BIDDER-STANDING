@@ -4,6 +4,7 @@ import type {
   DraftBid,
   PlayerAction,
   GameLogEntry,
+  ChatMessage,
   GoldDistributionEvent,
 } from '../types/game';
 import type { ClientSyncData } from '../network/protocol';
@@ -46,6 +47,7 @@ export class GameEngine {
         text: `ルームが作成されました。(ホスト: ${resolvedHostName})`,
         type: 'system',
       }],
+      chatMessages: [],
       winnerId: null,
       phaseDeadline: null,
       activeGoldEvent: null,
@@ -536,8 +538,8 @@ export class GameEngine {
       draftPool: this.state.draftPool,
       winnerId: this.state.winnerId,
       logs: this.state.logs
-        .filter(log => !log.visibleToPlayerId || log.visibleToPlayerId === targetPlayerId)
-        .slice(-50), // 最新50件
+        .filter(log => !log.visibleToPlayerId || log.visibleToPlayerId === targetPlayerId),
+      chatMessages: this.state.chatMessages || [],
       phaseDeadline: this.state.phaseDeadline,
       activeGoldEvent: this.goldDistributionEvents[targetPlayerId] || null,
       activeDraftEvent: this.state.activeDraftEvent,
@@ -553,6 +555,34 @@ export class GameEngine {
       type,
       ...(visibleToPlayerId ? { visibleToPlayerId } : {}),
     });
+  }
+
+  public addChatMessage(senderId: string, text: string): ChatMessage | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    const clampedText = trimmed.length > 200 ? trimmed.slice(0, 200) : trimmed;
+
+    const player = this.state.players[senderId];
+    const message: ChatMessage = {
+      id: `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      senderId,
+      senderName: player?.name || '不明',
+      roleId: player?.roleId || null,
+      text: clampedText,
+      timestamp: Date.now(),
+    };
+
+    if (!this.state.chatMessages) {
+      this.state.chatMessages = [];
+    }
+    this.state.chatMessages.push(message);
+
+    if (this.state.chatMessages.length > 200) {
+      this.state.chatMessages = this.state.chatMessages.slice(-200);
+    }
+
+    this.notify();
+    return message;
   }
 
   private clearTimer() {

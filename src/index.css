@@ -1,10 +1,25 @@
 :root {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --bg-base: #12100D;
+  --bg-panel: #1C1915;
+  --bg-panel-light: #26221C;
+  --border-main: #4A4234;
+  --border-light: #665b48;
+  --text-main: #E9DFC8;
+  --text-sub: #A79B7E;
+  --accent-red: #B3352B;
+  --dull-gold: #B9975B;
+  --status-subtle: #6B7F4E;
+
+  --font-serif: "Shippori Mincho B1", "Yu Mincho", serif;
+  --font-sans: "Zen Kaku Gothic New", "Hiragino Kaku Gothic ProN", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
-  color: #f8fafc;
-  background-color: #0f172a;
+  color: var(--text-main);
+  background-color: var(--bg-base);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -16,26 +31,165 @@ body {
   padding: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #0f172a;
+  background-color: var(--bg-base);
+  /* CSSで作るごく薄い紙のドットパターン */
+  background-image: radial-gradient(rgba(74, 66, 52, 0.45) 1px, transparent 0);
+  background-size: 16px 16px;
+  color: var(--text-main);
+  font-family: var(--font-sans);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* 数字専用フォントクラス */
+.font-mono-num {
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+/* タイトル・見出し用フォントクラス */
+.font-serif-heading {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+}
+
+/* ボタン基本ルール */
 button {
   font-family: inherit;
-  transition: opacity 0.15s ease;
+  border-radius: 0;
+  box-sizing: border-box;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease, color 0.15s ease;
 }
 
-button:hover {
-  opacity: 0.9;
+/* 最重要ボタン用スタイル（地下オークション 赤札） */
+.btn-primary {
+  background-color: var(--accent-red);
+  color: var(--text-main);
+  border: 1px solid #7d2019;
+  border-radius: 0px;
+  box-shadow: 4px 4px 0 #000;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  cursor: pointer;
+  transform: translate(0, 0);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000;
+  opacity: 1;
+}
+.btn-primary:active:not(:disabled) {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 #000;
+}
+.btn-primary:disabled {
+  background-color: #26221C;
+  color: var(--text-sub);
+  border-color: var(--border-main);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
-button:active {
-  opacity: 0.75;
+/* 通常ボタン（透明地＋生成り/罫線） */
+.btn-normal {
+  background-color: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-main);
+  border-radius: 0px;
+  box-shadow: 2px 2px 0 #000;
+  cursor: pointer;
+  transform: translate(0, 0);
+}
+.btn-normal:hover:not(:disabled) {
+  background-color: var(--bg-panel-light);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #000;
+  opacity: 1;
+}
+.btn-normal:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 #000;
+}
+.btn-normal:disabled {
+  color: var(--text-sub);
+  border-color: #2e2820;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
-input {
+/* 副次ボタン（文字＋下線または境界線） */
+.btn-sub {
+  background: transparent;
+  color: var(--text-sub);
+  border: none;
+  border-bottom: 1px solid var(--border-main);
+  padding: 4px 6px;
+  border-radius: 0;
+  cursor: pointer;
+}
+.btn-sub:hover:not(:disabled) {
+  color: var(--text-main);
+  border-bottom-color: var(--text-main);
+  opacity: 1;
+}
+
+/* 入力欄 */
+input, select, textarea {
   font-family: inherit;
+  border-radius: 0;
+  background-color: var(--bg-base);
+  color: var(--text-main);
+  border: 1px solid var(--border-main);
+  box-sizing: border-box;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--dull-gold);
+}
+
+/* 赤いハンコ風ラベル（装飾用） */
+.stamp-seal {
+  display: inline-block;
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
+  font-family: var(--font-serif);
+  font-weight: 700;
+  padding: 2px 8px;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+}
+
+.stamp-seal-solid {
+  display: inline-block;
+  background-color: var(--accent-red);
+  color: var(--text-main);
+  font-family: var(--font-serif);
+  font-weight: 700;
+  padding: 3px 10px;
+  letter-spacing: 0.1em;
+  line-height: 1.2;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-main);
+  border-radius: 0;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+}
+
+/* ユーザーの動き軽減設定を尊重 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

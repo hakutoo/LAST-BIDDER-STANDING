@@ -20,17 +20,20 @@ export const ActionResolutionView: React.FC<Props> = ({
     return (
       <div
         style={{
-          backgroundColor: '#0f172a',
-          border: '1px solid #334155',
-          borderRadius: '12px',
+          backgroundColor: '#1C1915',
+          border: '2px solid #4A4234',
           padding: '24px',
           textAlign: 'center',
           marginBottom: '16px',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+          boxShadow: '3px 3px 0 #000',
         }}
       >
-        <div style={{ fontSize: '1.2em', color: '#94a3b8', fontStyle: 'italic' }}>
-          ⚔️ バトルを解決中...
+        <div style={{
+          fontSize: '1.1em',
+          color: '#B9975B',
+          fontFamily: '"Shippori Mincho B1", serif',
+        }}>
+          戦闘解決中...
         </div>
       </div>
     );
@@ -42,114 +45,72 @@ export const ActionResolutionView: React.FC<Props> = ({
   const actorRole = actor?.roleId ? ROLE_DEFINITIONS[actor.roleId] : null;
   const targetRole = target?.roleId ? ROLE_DEFINITIONS[target.roleId] : null;
 
-  // テーマカラーとアイコン
-  let badgeColor = '#64748b';
-  let badgeIcon = '⚔️';
-  let highlightBorder = '#3b82f6';
+  // テーマカラーとテキストタグ
+  let badgeLabel = '[行動]';
+  let isAccented = false;
 
   switch (event.type) {
     case 'ACTION_START':
-      badgeColor = '#3b82f6';
-      badgeIcon = '🃏';
-      highlightBorder = '#60a5fa';
+      badgeLabel = '[開始]';
       break;
     case 'ATTACK_HIT':
       if (event.isCritical) {
-        badgeColor = '#f59e0b';
-        badgeIcon = '⚡';
-        highlightBorder = '#fbbf24';
+        badgeLabel = '[会心]';
+        isAccented = true;
       } else if (event.isCriticalAvoided) {
-        badgeColor = '#06b6d4';
-        badgeIcon = '🛡️';
-        highlightBorder = '#22d3ee';
+        badgeLabel = '[軽減]';
       } else {
-        badgeColor = '#ef4444';
-        badgeIcon = '💥';
-        highlightBorder = '#f87171';
+        badgeLabel = '[命中]';
       }
       break;
     case 'ATTACK_EVADED':
-      badgeColor = '#06b6d4';
-      badgeIcon = '💨';
-      highlightBorder = '#22d3ee';
+      badgeLabel = '[回避]';
       break;
     case 'ATTACK_PARRIED':
-      badgeColor = '#6366f1';
-      badgeIcon = '🛡️';
-      highlightBorder = '#818cf8';
+      badgeLabel = '[受流]';
       break;
     case 'COUNTER_ATTACK':
-      badgeColor = '#ec4899';
-      badgeIcon = '🗡️';
-      highlightBorder = '#f472b6';
+      badgeLabel = '[反撃]';
       break;
     case 'HEAL':
-      badgeColor = '#10b981';
-      badgeIcon = '💖';
-      highlightBorder = '#34d399';
+      badgeLabel = '[回復]';
       break;
     case 'BUFF':
     case 'PASSIVE':
-      badgeColor = '#8b5cf6';
-      badgeIcon = '✨';
-      highlightBorder = '#a78bfa';
+      badgeLabel = '[特性]';
       break;
     case 'STATUS_APPLIED':
     case 'POISON_DAMAGE':
-      badgeColor = '#9333ea';
-      badgeIcon = '🟣';
-      highlightBorder = '#c084fc';
+      badgeLabel = '[毒害]';
       break;
     case 'DEATH':
-      badgeColor = '#dc2626';
-      badgeIcon = '💀';
-      highlightBorder = '#ef4444';
+      badgeLabel = '[脱落]';
+      isAccented = true;
       break;
     case 'SUDDEN_DEATH':
-      badgeColor = '#ea580c';
-      badgeIcon = '🔥';
-      highlightBorder = '#fb923c';
+      badgeLabel = '[急死]';
+      isAccented = true;
       break;
     case 'EFFECT_EXPIRED':
-      badgeColor = '#475569';
-      badgeIcon = '⏳';
-      highlightBorder = '#64748b';
+      badgeLabel = '[終了]';
       break;
     case 'ACTION_WAIT':
-      badgeColor = '#64748b';
-      badgeIcon = '💤';
-      highlightBorder = '#94a3b8';
+      badgeLabel = '[待機]';
       break;
   }
 
   return (
     <div
       style={{
-        backgroundColor: '#090d16',
-        backgroundImage: 'linear-gradient(135deg, #090d16 0%, #131d2e 100%)',
-        border: `2px solid ${highlightBorder}`,
-        borderRadius: '12px',
-        padding: '20px',
+        backgroundColor: '#1C1915',
+        border: `2px solid ${isAccented ? '#B3352B' : '#4A4234'}`,
+        padding: '18px 20px',
         marginBottom: '16px',
-        boxShadow: `0 0 25px ${highlightBorder}33`,
+        boxShadow: '4px 4px 0 #000',
         position: 'relative',
-        overflow: 'hidden',
         animation: 'actionFadeIn 0.25s ease-out',
       }}
     >
-      {/* 背景のグロー演出 */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: `radial-gradient(circle, ${highlightBorder}15 0%, transparent 60%)`,
-          pointerEvents: 'none',
-        }}
-      />
-
       {/* ヘッダー: バッジとスキップボタン */}
       <div
         style={{
@@ -157,46 +118,51 @@ export const ActionResolutionView: React.FC<Props> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '14px',
-          position: 'relative',
-          zIndex: 1,
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '8px',
         }}
       >
         <div
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
-            backgroundColor: badgeColor,
-            color: '#fff',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            fontSize: '0.85em',
-            fontWeight: 'bold',
-            boxShadow: `0 2px 8px ${badgeColor}66`,
-            letterSpacing: '0.5px',
+            gap: '8px',
           }}
         >
-          <span>{badgeIcon}</span>
-          <span>{event.title}</span>
+          <span
+            style={{
+              backgroundColor: isAccented ? '#B3352B' : '#26221C',
+              color: '#E9DFC8',
+              border: '1px solid #4A4234',
+              padding: '2px 8px',
+              fontSize: '0.8em',
+              fontWeight: 700,
+              fontFamily: '"IBM Plex Mono", monospace',
+            }}
+          >
+            {badgeLabel}
+          </span>
+          <span style={{
+            fontSize: '0.9em',
+            fontWeight: 700,
+            color: '#E9DFC8',
+            fontFamily: '"Shippori Mincho B1", serif',
+          }}>
+            {event.title}
+          </span>
         </div>
 
         {isHost && onSkip && (
           <button
             onClick={onSkip}
+            className="btn-normal"
             style={{
-              backgroundColor: '#334155',
-              color: '#cbd5e1',
-              border: '1px solid #475569',
-              borderRadius: '6px',
-              padding: '4px 10px',
+              padding: '3px 10px',
               fontSize: '0.8em',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
             }}
             title="残りの演出をスキップして即時確定します"
           >
-            ⏭️ 演出スキップ
+            演出スキップ
           </button>
         )}
       </div>
@@ -209,8 +175,6 @@ export const ActionResolutionView: React.FC<Props> = ({
           alignItems: 'center',
           gap: '16px',
           margin: '12px 0 16px 0',
-          position: 'relative',
-          zIndex: 1,
           flexWrap: 'wrap',
         }}
       >
@@ -218,23 +182,22 @@ export const ActionResolutionView: React.FC<Props> = ({
         {actor && (
           <div
             style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #475569',
-              borderRadius: '8px',
+              backgroundColor: '#12100D',
+              border: '1px solid #4A4234',
               padding: '10px 16px',
               minWidth: '150px',
               textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              boxShadow: '2px 2px 0 #000',
             }}
           >
-            <div style={{ fontSize: '0.75em', color: '#94a3b8', marginBottom: '2px' }}>
+            <div style={{ fontSize: '0.72em', color: '#A79B7E', marginBottom: '2px' }}>
               行動者
             </div>
-            <div style={{ fontWeight: 'bold', fontSize: '1.05em', color: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, fontSize: '1em', color: '#E9DFC8' }}>
               {actor.name}
             </div>
             {actorRole && (
-              <div style={{ fontSize: '0.75em', color: '#38bdf8', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.72em', color: '#B9975B', marginTop: '2px' }}>
                 {actorRole.name}
               </div>
             )}
@@ -242,30 +205,29 @@ export const ActionResolutionView: React.FC<Props> = ({
               <div
                 style={{
                   marginTop: '6px',
-                  backgroundColor: '#0f172a',
+                  backgroundColor: '#1C1915',
                   padding: '3px 8px',
-                  borderRadius: '4px',
                   fontSize: '0.8em',
-                  color: '#fbbf24',
-                  fontWeight: 'bold',
-                  border: '1px solid #334155',
+                  color: '#B9975B',
+                  fontWeight: 700,
+                  border: '1px solid #4A4234',
+                  fontFamily: '"Shippori Mincho B1", serif',
                 }}
               >
-                🃏 {cardDef.name}
+                {cardDef.name}
               </div>
             )}
           </div>
         )}
 
-        {/* 矢印 / アクションアイコン */}
+        {/* 矢印 */}
         {actor && target && actor.id !== target.id && (
           <div
             style={{
-              fontSize: '1.8em',
-              color: highlightBorder,
-              fontWeight: 'bold',
-              textShadow: `0 0 10px ${highlightBorder}`,
-              animation: 'actionPulse 1s infinite alternate',
+              fontSize: '1.4em',
+              color: '#B9975B',
+              fontWeight: 700,
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
             ➔
@@ -276,60 +238,54 @@ export const ActionResolutionView: React.FC<Props> = ({
         {target && target.id !== actor?.id && (
           <div
             style={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #475569',
-              borderRadius: '8px',
+              backgroundColor: '#12100D',
+              border: '1px solid #4A4234',
               padding: '10px 16px',
               minWidth: '150px',
               textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              boxShadow: '2px 2px 0 #000',
             }}
           >
-            <div style={{ fontSize: '0.75em', color: '#94a3b8', marginBottom: '2px' }}>
+            <div style={{ fontSize: '0.72em', color: '#A79B7E', marginBottom: '2px' }}>
               対象
             </div>
-            <div style={{ fontWeight: 'bold', fontSize: '1.05em', color: '#f8fafc' }}>
+            <div style={{ fontWeight: 700, fontSize: '1em', color: '#E9DFC8' }}>
               {target.name}
             </div>
             {targetRole && (
-              <div style={{ fontSize: '0.75em', color: '#f43f5e', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.72em', color: '#A79B7E', marginTop: '2px' }}>
                 {targetRole.name}
               </div>
             )}
-            <div style={{ fontSize: '0.75em', color: '#94a3b8', marginTop: '6px' }}>
+            <div style={{
+              fontSize: '0.75em',
+              color: '#A79B7E',
+              marginTop: '6px',
+              fontFamily: '"IBM Plex Mono", monospace',
+            }}>
               HP: {target.hp}/{target.maxHp}
-              {target.sld > 0 && <span style={{ color: '#38bdf8' }}> (SLD: {target.sld})</span>}
+              {target.sld > 0 && <span style={{ color: '#B9975B' }}> (SLD: {target.sld})</span>}
             </div>
           </div>
         )}
       </div>
 
       {/* 特大数値・演出表示（ダメージ、回復、MISS等） */}
-      <div
-        style={{
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1,
-          marginTop: '8px',
-        }}
-      >
+      <div style={{ textAlign: 'center', marginTop: '6px' }}>
         {event.damage !== undefined && (
           <div
             style={{
-              fontSize: event.isCritical ? '2.4em' : '2em',
-              fontWeight: '900',
-              color: event.isCritical ? '#facc15' : '#ef4444',
-              textShadow: event.isCritical
-                ? '0 0 20px rgba(250, 204, 21, 0.8), 2px 2px 0px #000'
-                : '0 0 15px rgba(239, 68, 68, 0.7), 2px 2px 0px #000',
+              fontSize: event.isCritical ? '2.2em' : '1.9em',
+              fontWeight: 700,
+              color: event.isCritical ? '#B9975B' : '#B3352B',
+              fontFamily: '"IBM Plex Mono", monospace',
               letterSpacing: '1px',
-              animation: 'popBounce 0.35s ease-out',
             }}
           >
             {event.isCritical && 'CRITICAL! '}
             -{event.damage} DAMAGE
             {event.sldDamage ? (
-              <span style={{ fontSize: '0.5em', color: '#38bdf8', marginLeft: '8px' }}>
+              <span style={{ fontSize: '0.55em', color: '#B9975B', marginLeft: '8px' }}>
                 (SLD: -{event.sldDamage}, HP: -{event.hpDamage})
               </span>
             ) : null}
@@ -339,11 +295,10 @@ export const ActionResolutionView: React.FC<Props> = ({
         {event.healAmount !== undefined && (
           <div
             style={{
-              fontSize: '2em',
-              fontWeight: '900',
-              color: '#34d399',
-              textShadow: '0 0 15px rgba(52, 211, 153, 0.7), 2px 2px 0px #000',
-              animation: 'popBounce 0.35s ease-out',
+              fontSize: '1.9em',
+              fontWeight: 700,
+              color: '#6B7F4E',
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
             +{event.healAmount} HEAL!
@@ -353,16 +308,16 @@ export const ActionResolutionView: React.FC<Props> = ({
         {/* 詳細メッセージ */}
         <div
           style={{
-            fontSize: '1.05em',
-            color: '#e2e8f0',
-            fontWeight: '500',
+            fontSize: '0.95em',
+            color: '#E9DFC8',
             marginTop: '8px',
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backgroundColor: '#12100D',
+            border: '1px solid #4A4234',
             padding: '8px 16px',
-            borderRadius: '6px',
             display: 'inline-block',
             maxWidth: '90%',
             lineHeight: 1.4,
+            boxShadow: '2px 2px 0 #000',
           }}
         >
           {event.description}

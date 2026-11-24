@@ -1343,4 +1343,225 @@ console.log('\n=== 17. スピードスター「アクセル・ビート」命中
   }
 }
 
+// === 18. バトルログ全件保持・試合最初までのさかのぼり検証テスト ===
+console.log('\n=== 18. バトルログ全件保持・試合最初までのさかのぼり検証テスト ===');
+{
+  const engine = new GameEngine('roomLogTest', 'host1', 'Host', () => {});
+  engine.addPlayer('client1', 'Client');
+
+  // 初期ログ（ゲーム開始ログ等）を確認
+  const initialSync = engine.generateClientSyncData('host1');
+  const initialLogCount = initialSync.logs.length;
+  assert(initialLogCount >= 1, `初期ログが存在すること、実際: ${initialLogCount}`);
+
+  // 100件のログを追加（従来は50件で切り捨てられていた）
+  const engineWithLog = engine as unknown as {
+    addLog: (text: string, type: string, visibleToPlayerId?: string) => void;
+  };
+  for (let i = 1; i <= 100; i++) {
+    engineWithLog.addLog(`テストログ第${i}行目`, 'info');
+  }
+
+  // client1専用の秘密ログを追加
+  engineWithLog.addLog('client1専用シークレットログ', 'system', 'client1');
+
+  const hostSync = engine.generateClientSyncData('host1');
+  const clientSync = engine.generateClientSyncData('client1');
+
+  // ホスト視点の検証
+  assert(
+    hostSync.logs.length === initialLogCount + 100,
+    `ホストのSyncDataに50件制限なく全件(${initialLogCount + 100}件)含まれていること、実際: ${hostSync.logs.length}`
+  );
+  assert(
+    hostSync.logs[0].text === initialSync.logs[0].text,
+    `最古のログ(試合開始時)が配列先頭[0]に保持されており試合最初までさかのぼれること、実際: ${hostSync.logs[0].text}`
+  );
+  assert(
+    hostSync.logs[hostSync.logs.length - 1].text === 'テストログ第100行目',
+    `最新のログが配列末尾に保持されていること、実際: ${hostSync.logs[hostSync.logs.length - 1].text}`
+  );
+  assert(
+    !hostSync.logs.some(l => l.text === 'client1専用シークレットログ'),
+    '他者向けプライベートログがホストに漏洩しないこと'
+  );
+
+  // クライアント視点の検証
+  assert(
+    clientSync.logs.length === initialLogCount + 100 + 1,
+    `クライアントのSyncDataに自分専用ログを含めた全件(${initialLogCount + 101}件)が含まれていること、実際: ${clientSync.logs.length}`
+  );
+  assert(
+    clientSync.logs.some(l => l.text === 'client1専用シークレットログ'),
+    '自分専用ログが正常にクライアントSyncDataに含まれていること'
+  );
+  assert(
+    clientSync.logs[0].text === initialSync.logs[0].text,
+    `クライアント側でも試合開始時の最古のログが保持されていること、実際: ${clientSync.logs[0].text}`
+  );
+
+  engine.destroy();
+}
+
+console.log('\n=== 19. センチネル「パリィ・スタンス」反射アクション検証テスト ===');
+// テスト19-1: パリィ・スタンス発動時、攻撃命中後に反射アクション(COUNTER_ATTACK)が発生し、ダメージ・ログ・lastDamageDealtが正しく反映されること
+{
+  const sentinel = createInitialPlayerState('p1', 'Sentinel', false);
+  applyRoleToPlayer(sentinel, 'sentinel');
+  sentinel.hand = [{ instanceId: 'parry_card', cardId: 'unique_sentinel_a' }];
+
+  const attacker = createInitialPlayerState('p2', 'Attacker', false);
+  attacker.atk = 20;
+  attacker.hp = 100;
+  attacker.maxHp = 100;
+  attacker.hand = [{ instanceId: 'atk_card', cardId: 'normal_attack' }]; // 物理攻撃 (ATK 80%)
+
+  const steps = buildTurnResolutionSteps(
+    { p1: sentinel, p2: attacker },
+    {
+      p1: { playerId: 'p1', cardInstanceId: 'parry_card', targetPlayerId: 'p1' },
+      p2: { playerId: 'p2', cardInstanceId: 'atk_card', targetPlayerId: 'p1' },
+    },
+    1
+  );
+
+  // ステップの流れを確認
+  // 1. Sentinelのパリィ・スタンス使用
+  // 2. Sentinel構えBUFF
+  // 3. Attackerの攻撃使用
+  // 4. Attackerの攻撃命中 (ATTACK_HIT)
+  // 5. Sentinelのパリィ反射 (COUNTER_ATTACK)
+  // 6. 鋼のビルドアップ (PASSIVE)
+  const hitStepIndex = steps.findIndex(s => s.event.type === 'ATTACK_HIT' && s.event.actorId === 'p2' && s.event.targetId === 'p1');
+  assert(hitStepIndex !== -1, 'AttackerからSentinelへのATTACK_HITステップが存在すること');
+
+  const reflectStepIndex = steps.findIndex(s => s.event.type === 'COUNTER_ATTACK' && s.event.actorId === 'p1' && s.event.targetId === 'p2');
+  assert(reflectStepIndex !== -1, 'SentinelからAttackerへのCOUNTER_ATTACK(反射)ステップが存在すること');
+
+  assert(hitStepIndex < reflectStepIndex, `攻撃命中(${hitStepIndex})の後に反射アクション(${reflectStepIndex})が発生していること`);
+
+  const reflectStep = steps[reflectStepIndex];
+  assert(reflectStep.event.title === 'パリィ反射！', `イベントタイトルが「パリィ反射！」であること、実際: ${reflectStep.event.title}`);
+  assert(reflectStep.event.cardId === 'unique_sentinel_a', `cardIdがunique_sentinel_aであること、実際: ${reflectStep.event.cardId}`);
+  assert((reflectStep.event.damage ?? 0) > 0, `反射ダメージが0より大きいこと、実際: ${reflectStep.event.damage}`);
+  assert(reflectStep.log.text.includes('【パリィ反射】'), `ログに【パリィ反射】が含まれること、実際: ${reflectStep.log.text}`);
+
+  // resolveTurn での最終状態を確認
+  const res = resolveTurn(
+    { p1: sentinel, p2: attacker },
+    {
+      p1: { playerId: 'p1', cardInstanceId: 'parry_card', targetPlayerId: 'p1' },
+      p2: { playerId: 'p2', cardInstanceId: 'atk_card', targetPlayerId: 'p1' },
+    },
+    1
+  );
+
+  const finalSentinel = res.updatedPlayers['p1'];
+  const finalAttacker = res.updatedPlayers['p2'];
+
+  assert(finalAttacker.hp < 100, `AttackerのHPが反射ダメージにより減少していること(期待値 < 100、実際: ${finalAttacker.hp})`);
+  assert(finalSentinel.lastDamageDealt === (100 - finalAttacker.hp), `SentinelのlastDamageDealtに反射ダメージが加算されていること(期待値: ${100 - finalAttacker.hp}、実際: ${finalSentinel.lastDamageDealt})`);
+}
+
+// テスト19-2: 魔法攻撃に対してもパリィ・スタンスの反射アクションが発生すること
+{
+  const sentinel = createInitialPlayerState('p1', 'Sentinel', false);
+  applyRoleToPlayer(sentinel, 'sentinel');
+  sentinel.hand = [{ instanceId: 'parry_card', cardId: 'unique_sentinel_a' }];
+
+  const mage = createInitialPlayerState('p2', 'Mage', false);
+  mage.mat = 20;
+  mage.hp = 100;
+  mage.maxHp = 100;
+  mage.hand = [{ instanceId: 'magic_card', cardId: 'corrosive_poison' }]; // 魔法攻撃
+
+  const steps = buildTurnResolutionSteps(
+    { p1: sentinel, p2: mage },
+    {
+      p1: { playerId: 'p1', cardInstanceId: 'parry_card', targetPlayerId: 'p1' },
+      p2: { playerId: 'p2', cardInstanceId: 'magic_card', targetPlayerId: 'p1' },
+    },
+    1
+  );
+
+  const hitStepIndex = steps.findIndex(s => s.event.type === 'ATTACK_HIT' && s.event.actorId === 'p2' && s.event.targetId === 'p1');
+  const reflectStepIndex = steps.findIndex(s => s.event.type === 'COUNTER_ATTACK' && s.event.actorId === 'p1' && s.event.targetId === 'p2');
+  assert(hitStepIndex !== -1, '魔法攻撃のATTACK_HITステップが存在すること');
+  assert(reflectStepIndex !== -1, '魔法攻撃に対するパリィ反射COUNTER_ATTACKステップが存在すること');
+  assert(hitStepIndex < reflectStepIndex, '魔法攻撃でも命中後に反射アクションが発生すること');
+}
+
+// テスト19-3: 反射ダメージによって攻撃者を撃破できること
+{
+  const sentinel = createInitialPlayerState('p1', 'Sentinel', false);
+  applyRoleToPlayer(sentinel, 'sentinel');
+  sentinel.hand = [{ instanceId: 'parry_card', cardId: 'unique_sentinel_a' }];
+
+  const lowHpAttacker = createInitialPlayerState('p2', 'LowHpAttacker', false);
+  lowHpAttacker.atk = 20;
+  lowHpAttacker.hp = 3; // 反射ダメージで倒れるHP
+  lowHpAttacker.maxHp = 100;
+  lowHpAttacker.sld = 0;
+  lowHpAttacker.hand = [{ instanceId: 'atk_card', cardId: 'normal_attack' }];
+
+  const res = resolveTurn(
+    { p1: sentinel, p2: lowHpAttacker },
+    {
+      p1: { playerId: 'p1', cardInstanceId: 'parry_card', targetPlayerId: 'p1' },
+      p2: { playerId: 'p2', cardInstanceId: 'atk_card', targetPlayerId: 'p1' },
+    },
+    1
+  );
+
+  assert(!res.updatedPlayers['p2'].isAlive, '反射ダメージにより攻撃者が戦闘不能になること');
+  assert(res.winnerId === 'p1', `Sentinelの勝利判定となること、実際: ${res.winnerId}`);
+}
+
+// テスト20: 試合中チャット機能のテスト
+console.log('\n=== 20. 試合中チャット機能テスト ===');
+{
+  const engine = new GameEngine('ROOM1', 'host_p1', 'Player 1', () => {});
+  engine.addPlayer('client_p2', 'Player 2');
+
+  // ロール選択
+  engine.startRoleSelect();
+  engine.selectRole('host_p1', 'sentinel');
+  engine.selectRole('client_p2', 'berserker');
+
+  // メッセージ送信
+  const msg1 = engine.addChatMessage('host_p1', 'よろしくお願いします！');
+  assert(msg1 !== null, 'チャットメッセージが生成されること');
+  assert(msg1?.senderId === 'host_p1', '送信者IDがhost_p1であること');
+  assert(msg1?.senderName === 'Player 1', '送信者名がPlayer 1であること');
+  assert(msg1?.roleId === 'sentinel', 'ロールIDがsentinelであること');
+  assert(msg1?.text === 'よろしくお願いします！', 'テキストが正しいこと');
+
+  // 空白メッセージの除外
+  const emptyMsg = engine.addChatMessage('host_p1', '   ');
+  assert(emptyMsg === null, '空白のみのメッセージは送信されないこと');
+
+  // 長文メッセージの制限（200文字）
+  const longText = 'あ'.repeat(250);
+  const msg2 = engine.addChatMessage('client_p2', longText);
+  assert(msg2 !== null && msg2.text.length === 200, `長文が200文字に制限されること、実際: ${msg2?.text.length}`);
+  assert(msg2?.roleId === 'berserker', 'p2のロールIDがberserkerであること');
+
+  // クライアント同期データにチャットが含まれること
+  const syncP1 = engine.generateClientSyncData('host_p1');
+  const syncP2 = engine.generateClientSyncData('client_p2');
+  assert(syncP1.chatMessages.length === 2, `P1の同期データにチャットが2件含まれること、実際: ${syncP1.chatMessages.length}`);
+  assert(syncP2.chatMessages.length === 2, `P2の同期データにチャットが2件含まれること、実際: ${syncP2.chatMessages.length}`);
+  assert(syncP1.chatMessages[0].text === 'よろしくお願いします！', '最初のメッセージが一致すること');
+
+  // 200件上限のローテーションテスト
+  for (let i = 0; i < 210; i++) {
+    engine.addChatMessage('host_p1', `連投テスト ${i}`);
+  }
+  const syncRotated = engine.generateClientSyncData('host_p1');
+  assert(syncRotated.chatMessages.length === 200, `チャットメッセージが最大200件に制限されること、実際: ${syncRotated.chatMessages.length}`);
+  assert(syncRotated.chatMessages[syncRotated.chatMessages.length - 1].text === '連投テスト 209', '最新のメッセージが保持されていること');
+
+  engine.destroy();
+}
+
 console.log('\n全テストが正常に通過しました！');

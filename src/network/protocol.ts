@@ -1,6 +1,7 @@
 import type {
   DraftBid,
   GameLogEntry,
+  ChatMessage,
   GamePhase,
   PlayerAction,
   PublicPlayerInfo,
@@ -20,6 +21,7 @@ export type ClientMessage =
   | { type: 'SUBMIT_DRAFT_BID'; bid: DraftBid }
   | { type: 'SUBMIT_ACTION'; action: PlayerAction }
   | { type: 'SKIP_RESOLUTION' }
+  | { type: 'SEND_CHAT'; text: string }
   | { type: 'PING' }
   | { type: 'PONG' }
   | { type: 'RECONNECT'; playerId: string };
@@ -38,6 +40,7 @@ export interface ClientSyncData {
   draftPool: DraftCard[];
   winnerId: string | null | 'DRAW' | 'FORCE_QUIT';
   logs: GameLogEntry[];
+  chatMessages: ChatMessage[];
   phaseDeadline: number | null; // 制限時間
   activeGoldEvent?: GoldDistributionEvent | null;
   activeDraftEvent?: DraftResolutionEvent | null;
@@ -46,6 +49,7 @@ export interface ClientSyncData {
 
 export type HostMessage = 
   | { type: 'SYNC_STATE'; data: ClientSyncData }
+  | { type: 'CHAT_MESSAGE'; chat: ChatMessage }
   | { type: 'JOIN_ACCEPTED'; yourId: string }
   | { type: 'ERROR'; message: string }
   | { type: 'PING' }

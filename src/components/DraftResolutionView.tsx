@@ -18,17 +18,20 @@ export const DraftResolutionView: React.FC<Props> = ({
     return (
       <div
         style={{
-          backgroundColor: '#090d16',
-          border: '2px solid #38bdf8',
-          borderRadius: '12px',
+          backgroundColor: '#1C1915',
+          border: '2px solid #4A4234',
           padding: '24px',
           textAlign: 'center',
           marginBottom: '16px',
-          boxShadow: '0 0 25px rgba(56, 189, 248, 0.25)',
+          boxShadow: '3px 3px 0 #000',
         }}
       >
-        <div style={{ fontSize: '1.2em', color: '#38bdf8', fontStyle: 'italic' }}>
-          📜 ドラフト結果を集計中...
+        <div style={{
+          fontSize: '1.1em',
+          color: '#B9975B',
+          fontFamily: '"Shippori Mincho B1", serif',
+        }}>
+          ドラフト結果を集計中...
         </div>
       </div>
     );
@@ -41,36 +44,15 @@ export const DraftResolutionView: React.FC<Props> = ({
   return (
     <div
       style={{
-        backgroundColor: '#090d16',
-        backgroundImage: 'linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%)',
-        border: `2px solid ${isWinnerAnnounce && hasWinner ? '#eab308' : '#38bdf8'}`,
-        borderRadius: '12px',
+        backgroundColor: '#1C1915',
+        border: `2px solid ${isWinnerAnnounce && hasWinner ? '#B9975B' : '#4A4234'}`,
         padding: '20px',
         marginBottom: '16px',
-        boxShadow: isWinnerAnnounce && hasWinner
-          ? '0 0 30px rgba(234, 179, 8, 0.4)'
-          : '0 0 25px rgba(56, 189, 248, 0.25)',
+        boxShadow: '4px 4px 0 #000',
         position: 'relative',
-        overflow: 'hidden',
-        animation: 'actionFadeIn 0.3s ease-out',
-        transition: 'border-color 0.3s, box-shadow 0.3s',
+        animation: 'actionFadeIn 0.25s ease-out',
       }}
     >
-      {/* 背景のグロー */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: isWinnerAnnounce && hasWinner
-            ? 'radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 60%)'
-            : 'radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 60%)',
-          pointerEvents: 'none',
-        }}
-      />
-
       {/* ヘッダー: ステップバッジ・カード進行・スキップボタン */}
       <div
         style={{
@@ -78,10 +60,10 @@ export const DraftResolutionView: React.FC<Props> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '14px',
-          position: 'relative',
-          zIndex: 1,
           flexWrap: 'wrap',
           gap: '8px',
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '10px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -89,46 +71,40 @@ export const DraftResolutionView: React.FC<Props> = ({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              backgroundColor: isWinnerAnnounce ? '#eab308' : '#0284c7',
-              color: isWinnerAnnounce ? '#000' : '#fff',
-              padding: '4px 14px',
-              borderRadius: '20px',
+              backgroundColor: isWinnerAnnounce ? '#B9975B' : '#26221C',
+              color: isWinnerAnnounce ? '#12100D' : '#E9DFC8',
+              border: '1px solid #4A4234',
+              padding: '3px 12px',
               fontSize: '0.85em',
-              fontWeight: 'bold',
-              boxShadow: isWinnerAnnounce
-                ? '0 2px 10px rgba(234, 179, 8, 0.6)'
-                : '0 2px 8px rgba(2, 132, 199, 0.5)',
-              letterSpacing: '0.5px',
-              transition: 'all 0.3s',
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
-            <span>{isWinnerAnnounce ? '👑' : '📜'}</span>
-            <span>{isWinnerAnnounce ? '落札確定' : '入札開示'}</span>
+            {isWinnerAnnounce ? '[落札確定]' : '[入札開示]'}
           </div>
 
-          <span style={{ fontSize: '0.9em', color: '#94a3b8', fontWeight: 'bold' }}>
-            カード {event.cardIndex} / {event.totalCards}
+          <span style={{
+            fontSize: '0.85em',
+            color: '#A79B7E',
+            fontWeight: 700,
+            fontFamily: '"IBM Plex Mono", monospace',
+          }}>
+            競売品 {event.cardIndex} / {event.totalCards}
           </span>
         </div>
 
         {isHost && onSkip && (
           <button
             onClick={onSkip}
+            className="btn-normal"
             style={{
-              backgroundColor: '#334155',
-              color: '#cbd5e1',
-              border: '1px solid #475569',
-              borderRadius: '6px',
               padding: '4px 10px',
               fontSize: '0.8em',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
             }}
             title="残りのドラフト結果をスキップして即座に確定します"
           >
-            ⏭️ 演出スキップ
+            演出スキップ
           </button>
         )}
       </div>
@@ -136,13 +112,10 @@ export const DraftResolutionView: React.FC<Props> = ({
       {/* 対象カード情報 */}
       <div
         style={{
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
-          border: '1px solid #334155',
-          borderRadius: '8px',
+          backgroundColor: '#12100D',
+          border: '1px solid #4A4234',
           padding: '12px 16px',
           marginBottom: '16px',
-          position: 'relative',
-          zIndex: 1,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -152,25 +125,30 @@ export const DraftResolutionView: React.FC<Props> = ({
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.25em', fontWeight: 'bold', color: '#f8fafc' }}>
-              🃏 {event.cardName}
+            <span style={{
+              fontSize: '1.2em',
+              fontWeight: 700,
+              color: '#E9DFC8',
+              fontFamily: '"Shippori Mincho B1", serif',
+            }}>
+              {event.cardName}
             </span>
             {cardDef?.statusBonus && (
               <span
                 style={{
-                  backgroundColor: '#7c3aed',
-                  color: '#fff',
-                  fontSize: '0.75em',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontWeight: 'bold',
+                  border: '1px solid #B9975B',
+                  color: '#B9975B',
+                  fontSize: '0.7em',
+                  padding: '1px 6px',
+                  fontWeight: 700,
+                  fontFamily: '"IBM Plex Mono", monospace',
                 }}
               >
-                ステータス強化
+                即時強化
               </span>
             )}
           </div>
-          <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginTop: '4px' }}>
+          <div style={{ fontSize: '0.82em', color: '#A79B7E', marginTop: '4px' }}>
             {cardDef?.description}
           </div>
         </div>
@@ -178,14 +156,13 @@ export const DraftResolutionView: React.FC<Props> = ({
         {event.statChangeText && isWinnerAnnounce && (
           <div
             style={{
-              backgroundColor: '#1e1b4b',
-              border: '1px solid #818cf8',
+              backgroundColor: '#26221C',
+              border: '1px solid #B9975B',
               padding: '4px 10px',
-              borderRadius: '6px',
-              color: '#a5b4fc',
-              fontSize: '0.85em',
-              fontWeight: 'bold',
-              animation: 'popBounce 0.3s ease-out',
+              color: '#B9975B',
+              fontSize: '0.82em',
+              fontWeight: 700,
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
             {event.statChangeText}
@@ -193,15 +170,13 @@ export const DraftResolutionView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* プレイヤー一覧 & 各入札額 */}
+      {/* プレイヤー一覧 & 各入札額（名札・値札風） */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: '10px',
           marginBottom: '16px',
-          position: 'relative',
-          zIndex: 1,
         }}
       >
         {event.bids.map((b) => {
@@ -213,17 +188,13 @@ export const DraftResolutionView: React.FC<Props> = ({
             <div
               key={b.playerId}
               style={{
-                backgroundColor: isWinner ? '#1e1b4b' : '#0f172a',
-                border: isWinner ? '3px solid #facc15' : '1px solid #334155',
-                borderRadius: '8px',
+                backgroundColor: isWinner ? '#26221C' : '#12100D',
+                border: isWinner ? '2px solid #B9975B' : '1px solid #4A4234',
                 padding: '10px',
                 textAlign: 'center',
-                boxShadow: isWinner ? '0 0 16px rgba(250, 204, 21, 0.7)' : 'none',
+                boxShadow: isWinner ? '3px 3px 0 #000' : '1px 1px 0 #000',
                 opacity: isDimmed ? 0.45 : 1,
-                transform: isWinner ? 'scale(1.05)' : 'scale(1)',
-                transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 position: 'relative',
-                overflow: 'hidden',
               }}
             >
               {isWinner && (
@@ -232,23 +203,22 @@ export const DraftResolutionView: React.FC<Props> = ({
                     position: 'absolute',
                     top: 0,
                     right: 0,
-                    backgroundColor: '#facc15',
-                    color: '#000',
+                    backgroundColor: '#B9975B',
+                    color: '#12100D',
                     fontSize: '0.65em',
-                    fontWeight: '900',
-                    padding: '2px 6px',
-                    borderBottomLeftRadius: '6px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    fontWeight: 700,
+                    padding: '1px 5px',
+                    fontFamily: '"IBM Plex Mono", monospace',
                   }}
                 >
-                  👑 落札！
+                  落札
                 </div>
               )}
 
-              <div style={{ fontWeight: 'bold', fontSize: '0.95em', color: '#f8fafc', marginBottom: '2px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9em', color: '#E9DFC8', marginBottom: '2px' }}>
                 {b.playerName}
               </div>
-              <div style={{ fontSize: '0.75em', color: '#94a3b8', marginBottom: '6px' }}>
+              <div style={{ fontSize: '0.72em', color: '#A79B7E', marginBottom: '6px' }}>
                 {role ? role.name : 'ロール'}
               </div>
 
@@ -258,22 +228,26 @@ export const DraftResolutionView: React.FC<Props> = ({
                   <div>
                     <span
                       style={{
-                        fontSize: isWinner ? '1.4em' : '1.2em',
-                        fontWeight: '900',
-                        color: isWinner ? '#facc15' : '#38bdf8',
-                        textShadow: isWinner ? '0 0 10px rgba(250, 204, 21, 0.6)' : 'none',
+                        fontSize: isWinner ? '1.3em' : '1.15em',
+                        fontWeight: 700,
+                        color: isWinner ? '#B9975B' : '#E9DFC8',
+                        fontFamily: '"IBM Plex Mono", monospace',
                       }}
                     >
                       {b.bidAmount} G
                     </span>
                     {b.effectiveBid > b.bidAmount && (
-                      <div style={{ fontSize: '0.7em', color: '#ec4899', fontWeight: 'bold' }}>
+                      <div style={{
+                        fontSize: '0.7em',
+                        color: '#B9975B',
+                        fontFamily: '"IBM Plex Mono", monospace',
+                      }}>
                         (実効: {b.effectiveBid}G)
                       </div>
                     )}
                   </div>
                 ) : (
-                  <span style={{ fontSize: '0.85em', color: '#64748b' }}>
+                  <span style={{ fontSize: '0.8em', color: '#A79B7E', fontFamily: '"IBM Plex Mono", monospace' }}>
                     入札なし (0G)
                   </span>
                 )}
@@ -283,33 +257,26 @@ export const DraftResolutionView: React.FC<Props> = ({
         })}
       </div>
 
-      {/* 獲得メッセージ表示（段階2で強調表示） */}
-      <div
-        style={{
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
+      {/* 獲得メッセージ表示 */}
+      <div style={{ textAlign: 'center' }}>
         <div
           style={{
-            fontSize: isWinnerAnnounce ? '1.15em' : '0.95em',
-            fontWeight: isWinnerAnnounce ? 'bold' : 'normal',
+            fontSize: isWinnerAnnounce ? '1.05em' : '0.92em',
+            fontWeight: isWinnerAnnounce ? 700 : 'normal',
             color: isWinnerAnnounce
-              ? hasWinner ? '#facc15' : '#94a3b8'
-              : '#94a3b8',
-            backgroundColor: 'rgba(15, 23, 42, 0.85)',
-            border: isWinnerAnnounce && hasWinner ? '1px solid rgba(250, 204, 21, 0.5)' : '1px solid #334155',
-            padding: '10px 20px',
-            borderRadius: '8px',
+              ? hasWinner ? '#B9975B' : '#A79B7E'
+              : '#A79B7E',
+            backgroundColor: '#12100D',
+            border: isWinnerAnnounce && hasWinner ? '1px solid #B9975B' : '1px solid #4A4234',
+            padding: '8px 18px',
             display: 'inline-block',
             maxWidth: '90%',
             lineHeight: 1.4,
-            animation: isWinnerAnnounce ? 'popBounce 0.35s ease-out' : 'none',
-            boxShadow: isWinnerAnnounce && hasWinner ? '0 0 15px rgba(250, 204, 21, 0.2)' : 'none',
+            boxShadow: '2px 2px 0 #000',
+            fontFamily: isWinnerAnnounce && hasWinner ? '"Shippori Mincho B1", serif' : 'inherit',
           }}
         >
-          {event.message}
+          {event.message.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()}
         </div>
       </div>
     </div>

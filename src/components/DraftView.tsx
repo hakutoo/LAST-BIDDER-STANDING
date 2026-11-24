@@ -97,7 +97,7 @@ export const DraftView: React.FC<Props> = ({
     return () => clearInterval(interval);
   }, [phaseDeadline, isSubmitted, handleSubmit]);
 
-  // 入札・購入内容が変更されたら、未確定入札（下書き）としてホストに自動同期
+  // 入札・購入内容の下書き同期
   useEffect(() => {
     if (isSubmitted) return;
 
@@ -164,64 +164,155 @@ export const DraftView: React.FC<Props> = ({
   };
 
   return (
-    <div style={{ backgroundColor: '#1e293b', padding: '16px', borderRadius: '8px', border: '1px solid #334155' }}>
+    <div style={{
+      backgroundColor: '#1C1915',
+      border: '2px solid #4A4234',
+      padding: '16px',
+      boxShadow: '4px 4px 0 #000',
+    }}>
       {/* フェーズヘッダー */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '12px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '16px',
+        borderBottom: '1px solid #4A4234',
+        paddingBottom: '12px',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.3em' }}>💰 ドラフト＆ショップフェーズ</h2>
-          <div style={{ fontSize: '0.9em', color: '#94a3b8' }}>
-            ドラフトカードへの入札と、自身のユニークカードの購入を行えます。
+          <div style={{
+            fontSize: '0.75em',
+            color: '#A79B7E',
+            letterSpacing: '0.15em',
+            fontFamily: '"IBM Plex Mono", monospace',
+          }}>
+            PHASE // BIDDING & PROCUREMENT
+          </div>
+          <h2 style={{
+            margin: '2px 0 0 0',
+            fontSize: '1.4em',
+            fontFamily: '"Shippori Mincho B1", serif',
+            fontWeight: 700,
+            color: '#E9DFC8',
+          }}>
+            ドラフト＆ショップ
+          </h2>
+          <div style={{ fontSize: '0.85em', color: '#A79B7E', marginTop: '2px' }}>
+            ドラフト競り札への入札、および専用カードの調達を行います。
           </div>
           {isJuggernaut && (
-            <div style={{ fontSize: '0.85em', color: '#38bdf8', marginTop: '2px' }}>
-              ★ジャガーノートパッシブ: 回復カードへの入札は1.25倍として扱われます！
+            <div style={{
+              fontSize: '0.82em',
+              color: '#B9975B',
+              marginTop: '4px',
+              border: '1px solid #4A4234',
+              padding: '2px 6px',
+              display: 'inline-block',
+            }}>
+              [特性] ジャガーノート: 回復カードへの入札は1.25倍として扱われます
             </div>
           )}
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: timeLeft <= 10 ? '#ef4444' : '#facc15' }}>
-            ⏱ 残り: {timeLeft} 秒
+
+        {/* 残り時間と資産メーター */}
+        <div style={{ textAlign: 'right', fontFamily: '"IBM Plex Mono", monospace' }}>
+          <div style={{
+            fontSize: '1.3em',
+            fontWeight: 700,
+            color: timeLeft <= 10 ? '#B3352B' : '#B9975B',
+            letterSpacing: '1px',
+          }}>
+            残り時間: {timeLeft}s
           </div>
-          <div style={{ fontSize: '0.95em', marginTop: '4px' }}>
-            所持: <b>{myG}G</b> | 入札: <b style={{ color: '#f87171' }}>{totalBid}G</b> | ショップ: <b style={{ color: '#a855f7' }}>{totalShopCost}G</b> | 残: <b style={{ color: '#4ade80' }}>{remainingG}G</b>
+          <div style={{
+            fontSize: '0.9em',
+            marginTop: '4px',
+            backgroundColor: '#12100D',
+            padding: '4px 8px',
+            border: '1px solid #4A4234',
+          }}>
+            所持: <b style={{ color: '#B9975B' }}>{myG}G</b> | 入札: <b style={{ color: '#B3352B' }}>{totalBid}G</b> | 店: <b style={{ color: '#A79B7E' }}>{totalShopCost}G</b> | 残: <b style={{ color: '#E9DFC8' }}>{remainingG}G</b>
           </div>
         </div>
       </div>
 
       {isSubmitted ? (
-        <div style={{ textAlign: 'center', padding: '24px', backgroundColor: '#0f172a', borderRadius: '6px' }}>
-          <div style={{ fontSize: '1.2em', color: '#4ade80', fontWeight: 'bold' }}>
-            入札・購入を提出しました！
+        <div style={{
+          textAlign: 'center',
+          padding: '32px 16px',
+          backgroundColor: '#12100D',
+          border: '1px solid #4A4234',
+        }}>
+          <div style={{
+            fontSize: '1.2em',
+            color: '#B9975B',
+            fontWeight: 700,
+            fontFamily: '"Shippori Mincho B1", serif',
+            letterSpacing: '0.05em',
+          }}>
+            入札・調達の提出を完了しました
           </div>
-          <div style={{ color: '#94a3b8', marginTop: '6px' }}>
-            他のプレイヤーの完了または時間切れを待っています...
+          <div style={{ color: '#A79B7E', marginTop: '8px', fontSize: '0.88em' }}>
+            他の参加者の提出または制限時間の終了をお待ちください...
           </div>
         </div>
       ) : (
         <>
-          {/* 1. 定額ショップ欄（ユニークカード ＆ 通常攻撃カード） */}
-          <div style={{ marginBottom: '24px', backgroundColor: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #6366f1' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          {/* 1. 定額ショップ欄（値札風カード） */}
+          <div style={{
+            marginBottom: '20px',
+            backgroundColor: '#12100D',
+            padding: '14px',
+            border: '1px solid #4A4234',
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px',
+              borderBottom: '1px solid #26221C',
+              paddingBottom: '6px',
+            }}>
               <div>
-                <span style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#818cf8' }}>🛒 定額ショップ</span>
-                <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '8px' }}>
-                  （いつでも定額購入可能・購入履歴は全体ログ非公開）
+                <span style={{
+                  fontSize: '1em',
+                  fontWeight: 700,
+                  color: '#B9975B',
+                  letterSpacing: '0.05em',
+                }}>
+                  定額調達店
+                </span>
+                <span style={{ fontSize: '0.78em', color: '#A79B7E', marginLeft: '8px' }}>
+                  （常時定額調達可能・調達履歴は非公開）
                 </span>
               </div>
-              <div style={{ fontSize: '0.9em', color: '#c7d2fe' }}>
-                ショップ小計: <b>{totalShopCost}G</b>
+              <div style={{ fontSize: '0.88em', color: '#E9DFC8', fontFamily: '"IBM Plex Mono", monospace' }}>
+                小計: <b style={{ color: '#B9975B' }}>{totalShopCost}G</b>
               </div>
             </div>
 
             {/* 固有ユニークカード */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '0.95em', fontWeight: 'bold', color: '#c084fc', marginBottom: '8px' }}>
-                👑 固有ユニークカード <span style={{ fontSize: '0.8em', fontWeight: 'normal', color: '#94a3b8' }}>（自ロール専用）</span>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{
+                fontSize: '0.85em',
+                fontWeight: 700,
+                color: '#E9DFC8',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span className="stamp-seal" style={{ fontSize: '0.7em', padding: '0 4px' }}>専用</span>
+                <span>固有ユニークカード</span>
+                <span style={{ fontSize: '0.75em', fontWeight: 'normal', color: '#A79B7E' }}>（自ロール専用）</span>
               </div>
+
               {uniqueCardIds.length === 0 ? (
-                <div style={{ color: '#94a3b8', fontSize: '0.9em' }}>購入可能なユニークカードがありません。</div>
+                <div style={{ color: '#A79B7E', fontSize: '0.85em', padding: '8px' }}>調達可能な専用カードがありません。</div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
                   {uniqueCardIds.map((cardId) => {
                     const def = CARD_DEFINITIONS[cardId];
                     if (!def) return null;
@@ -234,76 +325,90 @@ export const DraftView: React.FC<Props> = ({
                       <div
                         key={cardId}
                         style={{
-                          backgroundColor: '#1e293b',
-                          border: count > 0 ? '2px solid #818cf8' : '1px solid #475569',
-                          borderRadius: '6px',
-                          padding: '10px',
+                          backgroundColor: count > 0 ? '#26221C' : '#1C1915',
+                          border: count > 0 ? '2px solid #B9975B' : '1px solid #4A4234',
+                          padding: '10px 12px',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'space-between',
+                          boxShadow: '2px 2px 0 #000',
                         }}
                       >
                         <div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <b style={{ fontSize: '1.05em', color: '#f8fafc' }}>{def.name}</b>
+                            <b style={{ fontSize: '1em', color: '#E9DFC8' }}>{def.name}</b>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               {def.priority === 'HIGH' && (
-                                <span style={{ fontSize: '0.7em', padding: '1px 5px', borderRadius: '3px', backgroundColor: '#e11d48', color: '#fff' }}>
-                                  優先度:高
+                                <span style={{
+                                  fontSize: '0.65em',
+                                  padding: '1px 4px',
+                                  backgroundColor: '#B3352B',
+                                  color: '#E9DFC8',
+                                  fontWeight: 700,
+                                }}>
+                                  優先:高
                                 </span>
                               )}
-                              <span
-                                style={{
-                                  fontSize: '0.7em',
-                                  padding: '1px 5px',
-                                  borderRadius: '3px',
-                                  backgroundColor: isUniqueA ? '#4338ca' : '#6d28d9',
-                                  color: '#fff',
-                                }}
-                              >
-                                {isUniqueA ? 'ユニークA' : 'ユニークB'} ({price}G)
+                              <span style={{
+                                fontSize: '0.68em',
+                                padding: '1px 4px',
+                                border: '1px solid #4A4234',
+                                color: '#B9975B',
+                                fontFamily: '"IBM Plex Mono", monospace',
+                              }}>
+                                {isUniqueA ? '固有A' : '固有B'} ({price}G)
                               </span>
                             </div>
                           </div>
-                          <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>
+                          <div style={{ fontSize: '0.82em', color: '#A79B7E', marginBottom: '8px', lineHeight: '1.4' }}>
                             {formatCardDescription(def.description, myPlayer)}
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '4px' }}>
-                          <div style={{ fontSize: '0.9em', color: '#e2e8f0' }}>
-                            単価: <b style={{ color: '#facc15' }}>{price}G</b>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          borderTop: '1px solid #26221C',
+                          paddingTop: '6px',
+                          marginTop: '4px',
+                        }}>
+                          <div style={{ fontSize: '0.85em', color: '#E9DFC8', fontFamily: '"IBM Plex Mono", monospace' }}>
+                            単価: <b style={{ color: '#B9975B' }}>{price}G</b>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <button
                               onClick={() => handleUniquePurchaseChange(cardId, -1)}
                               disabled={count <= 0}
+                              className="btn-normal"
                               style={{
-                                padding: '2px 10px',
-                                borderRadius: '4px',
-                                cursor: count > 0 ? 'pointer' : 'not-allowed',
-                                backgroundColor: count > 0 ? '#475569' : '#334155',
-                                color: '#fff',
-                                border: 'none',
-                                fontWeight: 'bold',
+                                padding: '1px 8px',
+                                fontSize: '0.9em',
+                                fontFamily: '"IBM Plex Mono", monospace',
                               }}
                             >
                               -
                             </button>
-                            <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05em', color: count > 0 ? '#818cf8' : '#94a3b8' }}>
+                            <span style={{
+                              minWidth: '28px',
+                              textAlign: 'center',
+                              fontWeight: 700,
+                              fontFamily: '"IBM Plex Mono", monospace',
+                              fontSize: '1em',
+                              color: count > 0 ? '#B9975B' : '#A79B7E',
+                            }}>
                               {count}
                             </span>
                             <button
                               onClick={() => handleUniquePurchaseChange(cardId, 1)}
                               disabled={!canBuy}
+                              className="btn-normal"
                               style={{
-                                padding: '2px 10px',
-                                borderRadius: '4px',
-                                cursor: canBuy ? 'pointer' : 'not-allowed',
-                                backgroundColor: canBuy ? '#6366f1' : '#334155',
-                                color: '#fff',
-                                border: 'none',
-                                fontWeight: 'bold',
+                                padding: '1px 8px',
+                                fontSize: '0.9em',
+                                fontFamily: '"IBM Plex Mono", monospace',
+                                borderColor: canBuy ? '#B9975B' : '#4A4234',
+                                color: canBuy ? '#B9975B' : '#A79B7E',
                               }}
                             >
                               +
@@ -319,10 +424,20 @@ export const DraftView: React.FC<Props> = ({
 
             {/* 通常攻撃派生カード */}
             <div>
-              <div style={{ fontSize: '0.95em', fontWeight: 'bold', color: '#38bdf8', marginBottom: '8px' }}>
-                ⚔️ 通常攻撃カード <span style={{ fontSize: '0.8em', fontWeight: 'normal', color: '#94a3b8' }}>（全プレイヤー購入可能・いつでも定額購入）</span>
+              <div style={{
+                fontSize: '0.85em',
+                fontWeight: 700,
+                color: '#E9DFC8',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span className="stamp-seal" style={{ fontSize: '0.7em', padding: '0 4px' }}>共通</span>
+                <span>通常攻撃カード</span>
+                <span style={{ fontSize: '0.75em', fontWeight: 'normal', color: '#A79B7E' }}>（全員調達可能）</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
                 {normalAttackCardIds.map((cardId) => {
                   const def = CARD_DEFINITIONS[cardId];
                   if (!def) return null;
@@ -335,69 +450,77 @@ export const DraftView: React.FC<Props> = ({
                     <div
                       key={cardId}
                       style={{
-                        backgroundColor: '#1e293b',
-                        border: count > 0 ? '2px solid #38bdf8' : '1px solid #475569',
-                        borderRadius: '6px',
-                        padding: '10px',
+                        backgroundColor: count > 0 ? '#26221C' : '#1C1915',
+                        border: count > 0 ? '2px solid #B9975B' : '1px solid #4A4234',
+                        padding: '10px 12px',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
+                        boxShadow: '2px 2px 0 #000',
                       }}
                     >
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <b style={{ fontSize: '1.05em', color: '#f8fafc' }}>{def.name}</b>
-                          <span
-                            style={{
-                              fontSize: '0.7em',
-                              padding: '1px 5px',
-                              borderRadius: '3px',
-                              backgroundColor: isAtk ? '#c2410c' : '#2563eb',
-                              color: '#fff',
-                            }}
-                          >
+                          <b style={{ fontSize: '1em', color: '#E9DFC8' }}>{def.name}</b>
+                          <span style={{
+                            fontSize: '0.68em',
+                            padding: '1px 4px',
+                            border: '1px solid #4A4234',
+                            color: '#A79B7E',
+                            fontFamily: '"IBM Plex Mono", monospace',
+                          }}>
                             {isAtk ? '通常(ATK)' : '通常(MAT)'} ({price}G)
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '0.82em', color: '#A79B7E', marginBottom: '8px', lineHeight: '1.4' }}>
                           {formatCardDescription(def.description, myPlayer)}
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '8px', marginTop: '4px' }}>
-                        <div style={{ fontSize: '0.9em', color: '#e2e8f0' }}>
-                          単価: <b style={{ color: '#facc15' }}>{price}G</b>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderTop: '1px solid #26221C',
+                        paddingTop: '6px',
+                        marginTop: '4px',
+                      }}>
+                        <div style={{ fontSize: '0.85em', color: '#E9DFC8', fontFamily: '"IBM Plex Mono", monospace' }}>
+                          単価: <b style={{ color: '#B9975B' }}>{price}G</b>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <button
                             onClick={() => handleUniquePurchaseChange(cardId, -1)}
                             disabled={count <= 0}
+                            className="btn-normal"
                             style={{
-                              padding: '2px 10px',
-                              borderRadius: '4px',
-                              cursor: count > 0 ? 'pointer' : 'not-allowed',
-                              backgroundColor: count > 0 ? '#475569' : '#334155',
-                              color: '#fff',
-                              border: 'none',
-                              fontWeight: 'bold',
+                              padding: '1px 8px',
+                              fontSize: '0.9em',
+                              fontFamily: '"IBM Plex Mono", monospace',
                             }}
                           >
                             -
                           </button>
-                          <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.05em', color: count > 0 ? '#38bdf8' : '#94a3b8' }}>
+                          <span style={{
+                            minWidth: '28px',
+                            textAlign: 'center',
+                            fontWeight: 700,
+                            fontFamily: '"IBM Plex Mono", monospace',
+                            fontSize: '1em',
+                            color: count > 0 ? '#B9975B' : '#A79B7E',
+                          }}>
                             {count}
                           </span>
                           <button
                             onClick={() => handleUniquePurchaseChange(cardId, 1)}
                             disabled={!canBuy}
+                            className="btn-normal"
                             style={{
-                              padding: '2px 10px',
-                              borderRadius: '4px',
-                              cursor: canBuy ? 'pointer' : 'not-allowed',
-                              backgroundColor: canBuy ? '#0284c7' : '#334155',
-                              color: '#fff',
-                              border: 'none',
-                              fontWeight: 'bold',
+                              padding: '1px 8px',
+                              fontSize: '0.9em',
+                              fontFamily: '"IBM Plex Mono", monospace',
+                              borderColor: canBuy ? '#B9975B' : '#4A4234',
+                              color: canBuy ? '#B9975B' : '#A79B7E',
                             }}
                           >
                             +
@@ -411,53 +534,78 @@ export const DraftView: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 2. ドラフトプール一覧 */}
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '1.1em', color: '#e2e8f0' }}>
-              🎲 ドラフトプール（入札オークション）
+          {/* 2. ドラフトプール一覧（競り札／値札風） */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '10px',
+              borderBottom: '1px solid #4A4234',
+              paddingBottom: '6px',
+            }}>
+              <span className="stamp-seal" style={{ fontSize: '0.75em', padding: '1px 6px' }}>競売</span>
+              <span style={{ fontWeight: 700, fontSize: '1.05em', color: '#E9DFC8' }}>
+                ドラフトプール（入札競り場）
+              </span>
             </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
               {draftPool.map((card) => {
                 const def = CARD_DEFINITIONS[card.cardId];
                 if (!def) return null;
                 const isHeal = def.category === 'HEAL' || def.id === 'draft_heal_powder';
                 const isStatus = !!def.statusBonus;
+                const hasBid = (bids[card.instanceId] || 0) > 0;
 
                 return (
                   <div
                     key={card.instanceId}
                     style={{
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #475569',
-                      borderRadius: '8px',
+                      backgroundColor: hasBid ? '#26221C' : '#1C1915',
+                      border: hasBid ? '2px solid #B9975B' : '1px solid #4A4234',
                       padding: '12px',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
+                      boxShadow: '3px 3px 0 #000',
+                      position: 'relative',
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <b style={{ fontSize: '1.05em' }}>{def.name}</b>
-                        <span
-                          style={{
-                            fontSize: '0.75em',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: isStatus ? '#0284c7' : isHeal ? '#16a34a' : def.category === 'NORMAL' ? '#475569' : '#7c3aed',
-                          }}
-                        >
-                          {isStatus ? '即時ステータス' : (CATEGORY_NAMES[def.category] || def.category)}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                        <b style={{
+                          fontSize: '1.05em',
+                          color: '#E9DFC8',
+                          fontFamily: '"Shippori Mincho B1", serif',
+                        }}>
+                          {def.name}
+                        </b>
+                        <span style={{
+                          fontSize: '0.7em',
+                          padding: '1px 5px',
+                          border: '1px solid #4A4234',
+                          color: isStatus ? '#B9975B' : isHeal ? '#6B7F4E' : '#A79B7E',
+                          backgroundColor: '#12100D',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {isStatus ? '即時強化' : (CATEGORY_NAMES[def.category] || def.category)}
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.85em', color: '#cbd5e1', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '0.82em', color: '#A79B7E', marginBottom: '10px', lineHeight: '1.4' }}>
                         {formatCardDescription(def.description, myPlayer)}
                       </div>
                     </div>
 
-                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #334155' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.9em' }}>入札G:</span>
+                    <div style={{
+                      marginTop: '8px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid #26221C',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.85em', color: '#A79B7E', fontFamily: '"IBM Plex Mono", monospace' }}>
+                          入札:
+                        </span>
                         <input
                           type="number"
                           min="0"
@@ -466,30 +614,31 @@ export const DraftView: React.FC<Props> = ({
                           placeholder="0"
                           onChange={(e) => handleBidChange(card.instanceId, e.target.value)}
                           style={{
-                            width: '70px',
+                            width: '74px',
                             padding: '4px 8px',
-                            borderRadius: '4px',
-                            border: '1px solid #64748b',
-                            backgroundColor: '#1e293b',
-                            color: '#fff',
-                            fontWeight: 'bold',
+                            fontFamily: '"IBM Plex Mono", monospace',
+                            fontWeight: 700,
+                            color: '#B9975B',
+                            fontSize: '0.95em',
                           }}
                         />
                         <button
                           onClick={() => handleBidChange(card.instanceId, `${(bids[card.instanceId] || 0) + 1}`)}
-                          style={{ padding: '2px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                          className="btn-normal"
+                          style={{ padding: '3px 8px', fontSize: '0.8em', fontFamily: '"IBM Plex Mono", monospace' }}
                         >
                           +1
                         </button>
                         <button
                           onClick={() => handleBidChange(card.instanceId, `${(bids[card.instanceId] || 0) + 5}`)}
-                          style={{ padding: '2px 8px', borderRadius: '4px', cursor: 'pointer' }}
+                          className="btn-normal"
+                          style={{ padding: '3px 8px', fontSize: '0.8em', fontFamily: '"IBM Plex Mono", monospace' }}
                         >
                           +5
                         </button>
                       </div>
                       {isJuggernaut && isHeal && (bids[card.instanceId] || 0) > 0 && (
-                        <div style={{ fontSize: '0.75em', color: '#38bdf8', marginTop: '4px' }}>
+                        <div style={{ fontSize: '0.75em', color: '#B9975B', marginTop: '4px', fontFamily: '"IBM Plex Mono", monospace' }}>
                           実効入札額: {Math.floor((bids[card.instanceId] || 0) * 1.25)}G
                         </div>
                       )}
@@ -501,39 +650,37 @@ export const DraftView: React.FC<Props> = ({
           </div>
 
           {/* 3. 確定ボタン・何もしないボタン */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '16px', alignItems: 'center' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '14px',
+            marginTop: '16px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}>
             <button
               onClick={handleDoNothing}
+              className="btn-sub"
               style={{
-                padding: '12px 24px',
-                fontSize: '1.05em',
-                borderRadius: '6px',
-                backgroundColor: '#334155',
-                color: '#fff',
-                border: 'none',
-                cursor: 'pointer',
+                fontSize: '0.9em',
+                padding: '8px 16px',
               }}
             >
               何もしない (パス)
             </button>
             <button
               onClick={handleSubmit}
+              className="btn-primary"
               style={{
-                padding: '12px 32px',
-                fontSize: '1.05em',
-                fontWeight: 'bold',
-                backgroundColor: '#2563eb',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
+                padding: '12px 28px',
+                fontSize: '1em',
               }}
             >
               入札・購入を確定する (合計: {totalExpense}G / 残り: {remainingG}G)
             </button>
           </div>
-          <div style={{ textAlign: 'center', fontSize: '0.85em', color: '#94a3b8', marginTop: '8px' }}>
-            ※確定ボタンを押さなくても、時間切れ時は現在選択・入力している内容で自動的に入札されます。全員が確定すると直ちに次のフェーズへ進みます。
+          <div style={{ textAlign: 'center', fontSize: '0.8em', color: '#A79B7E', marginTop: '10px' }}>
+            ※ 確定ボタンを押さなくても、時間切れ時は現在選択・入力している内容で自動的に入札されます。全員が確定すると直ちに次のフェーズへ進みます。
           </div>
         </>
       )}

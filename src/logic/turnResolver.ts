@@ -421,11 +421,6 @@ export function buildTurnResolutionSteps(
           }
 
           // 通常ヒット
-          if (dmgRes.reflectedDamage > 0) {
-            // パリィ・スタンスの50%反射
-            applyDirectDamage(actor, dmgRes.reflectedDamage, steps, updatedPlayers, turn, `${target.name} のパリィ反射`);
-          }
-
           actor.lastDamageDealt += dmgRes.finalDamage;
           target.hp = Math.max(0, target.hp - dmgRes.hpDamage);
           target.sld = Math.max(0, target.sld - dmgRes.sldDamage);
@@ -473,6 +468,11 @@ export function buildTurnResolutionSteps(
               description: hitMsg,
             }
           );
+
+          // パリィ・スタンスの50%反射
+          if (dmgRes.reflectedDamage > 0) {
+            applyParryReflectDamage(target, actor, dmgRes.reflectedDamage, steps, updatedPlayers, turn);
+          }
 
           // 命中時SPD上昇 (アクセル・ビート等)
           const spdGain = (effect.type === 'PHYSICAL_ATTACK' && effect.spdGainOnHit) || (cardDef.id === 'unique_speedstar_a' ? 1.5 : 0);
@@ -676,6 +676,11 @@ export function buildTurnResolutionSteps(
                 description: stampMsg,
               }
             );
+            // パリィ・スタンスの50%反射
+            if (dmgRes.reflectedDamage > 0) {
+              applyParryReflectDamage(target, actor, dmgRes.reflectedDamage, steps, updatedPlayers, turn);
+            }
+
             checkDeath(target, steps, updatedPlayers, turn);
           }
         }
@@ -1223,6 +1228,62 @@ function applyDirectDamage(
     }
   );
   checkDeath(player, steps, players, turn);
+}
+
+// パリィ・スタンスによる反射ダメージ処理
+function applyParryReflectDamage(
+  reflector: PlayerState,
+  attacker: PlayerState,
+  reflectedDamage: number,
+  steps: TurnResolutionStep[],
+  players: { [id: string]: PlayerState },
+  turn: number
+) {
+  let actualHpDmg = reflectedDamage;
+  let actualSldDmg = 0;
+
+  if (attacker.sld > 0) {
+    if (reflectedDamage <= attacker.sld) {
+      attacker.sld -= reflectedDamage;
+      actualSldDmg = reflectedDamage;
+      actualHpDmg = 0;
+    } else {
+      actualSldDmg = attacker.sld;
+      actualHpDmg = reflectedDamage - attacker.sld;
+      attacker.sld = 0;
+    }
+  }
+
+  attacker.hp = Math.max(0, attacker.hp - actualHpDmg);
+  reflector.lastDamageDealt += reflectedDamage;
+
+  const reflectMsg = `【パリィ反射】${reflector.name} は攻撃を受け流し反射！ ${attacker.name} に ${reflectedDamage} ダメージ (HP: -${actualHpDmg}, SLD: -${actualSldDmg})`;
+  pushStep(
+    steps,
+    players,
+    {
+      id: `turn_log_${Math.random()}`,
+      turn,
+      text: reflectMsg,
+      type: 'damage',
+    },
+    {
+      id: `event_${Math.random()}`,
+      type: 'COUNTER_ATTACK',
+      actorId: reflector.id,
+      actorName: reflector.name,
+      targetId: attacker.id,
+      targetName: attacker.name,
+      cardId: 'unique_sentinel_a',
+      cardName: 'パリィ・スタンス',
+      damage: reflectedDamage,
+      hpDamage: actualHpDmg,
+      sldDamage: actualSldDmg,
+      title: 'パリィ反射！',
+      description: reflectMsg,
+    }
+  );
+  checkDeath(attacker, steps, players, turn);
 }
 
 // 回復処理 (重傷・ジャガーノート考慮)

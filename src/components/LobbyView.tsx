@@ -78,62 +78,161 @@ export const LobbyView: React.FC<Props> = ({
   // 接続中画面
   if (isConnecting) {
     return (
-      <div style={{ maxWidth: '480px', margin: '40px auto', backgroundColor: '#1e293b', padding: '32px 24px', borderRadius: '8px', border: '1px solid #334155', textAlign: 'center' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '1.3em' }}>🔄 ルームに接続中...</h3>
-        <p style={{ color: '#94a3b8', marginBottom: '24px', fontSize: '0.95em', lineHeight: '1.6' }}>
-          ルーム「<b style={{ color: '#38bdf8' }}>{inputRoomCode}</b>」を探しています。<br />
+      <div style={{
+        maxWidth: '520px',
+        margin: '50px auto',
+        backgroundColor: '#1C1915',
+        border: '3px double #4A4234',
+        padding: '36px 28px',
+        textAlign: 'center',
+        boxShadow: '4px 4px 0 #000',
+      }}>
+        <div style={{
+          display: 'inline-block',
+          border: '1px solid #B9975B',
+          padding: '2px 10px',
+          color: '#B9975B',
+          fontSize: '0.75em',
+          letterSpacing: '0.15em',
+          marginBottom: '16px',
+          fontFamily: '"IBM Plex Mono", monospace',
+        }}>
+          COMMUNICATION IN PROGRESS
+        </div>
+        <h3 style={{
+          margin: '0 0 16px 0',
+          fontSize: '1.4em',
+          fontFamily: '"Shippori Mincho B1", serif',
+          color: '#E9DFC8',
+          letterSpacing: '-0.02em',
+        }}>
+          ルームに接続中...
+        </h3>
+        <p style={{
+          color: '#A79B7E',
+          marginBottom: '28px',
+          fontSize: '0.92em',
+          lineHeight: '1.7',
+        }}>
+          指定番号「<span style={{ color: '#B9975B', fontFamily: '"IBM Plex Mono", monospace', fontWeight: 'bold' }}>{inputRoomCode}</span>」の競り場を照会しています。<br />
           接続が完了するまでお待ちください...
         </p>
         {onBackToTitle && (
           <button
             onClick={onBackToTitle}
+            className="btn-normal"
             style={{
-              padding: '10px 20px',
-              borderRadius: '6px',
-              backgroundColor: '#475569',
-              color: '#fff',
-              fontWeight: 'bold',
-              border: 'none',
-              cursor: 'pointer',
+              padding: '10px 24px',
               fontSize: '0.9em',
             }}
           >
-            ← タイトル画面に戻る
+            タイトル画面に戻る
           </button>
         )}
       </div>
     );
   }
 
-  // 1. 最初に入室前（ルーム作成 or 参加）
+  // 1. 最初に入室前（ルーム作成 or 参加）- チラシレイアウト
   if (!roomCode) {
     return (
-      <div style={{ maxWidth: '520px', margin: '40px auto', backgroundColor: '#1e293b', padding: '24px', borderRadius: '8px', border: '1px solid #334155' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '12px' }}>LAST BIDDER STANDING</h2>
-        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.88em', marginTop: 0, marginBottom: '20px' }}>
-          賭けろ。戦え。生き残れ。<br />
-        </p>
+      <div style={{
+        maxWidth: '680px',
+        margin: '24px auto',
+        backgroundColor: '#1C1915',
+        border: '3px double #4A4234',
+        padding: '28px 24px',
+        boxShadow: '4px 4px 0 #000',
+        position: 'relative',
+      }}>
+        {/* チラシ風の飾り四隅角 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '8px',
+          marginBottom: '20px',
+          fontSize: '0.75em',
+          color: '#A79B7E',
+          fontFamily: '"IBM Plex Mono", monospace',
+          letterSpacing: '0.15em',
+        }}>
+          <span>OFFICIAL NOTICE // VOL.01</span>
+          <span>ONLINE BIDDING BATTLE</span>
+          <span>SECRET SPEC</span>
+        </div>
+
+        {/* タイトル部（明朝で大きく組み、文字間を詰め気味にする） */}
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <h1 style={{
+            fontFamily: '"Shippori Mincho B1", serif',
+            fontWeight: 800,
+            fontSize: 'clamp(2rem, 5vw, 2.9rem)',
+            lineHeight: 1.15,
+            letterSpacing: '-0.03em',
+            margin: '0 0 14px 0',
+            color: '#E9DFC8',
+          }}>
+            LAST BIDDER<br />STANDING
+          </h1>
+
+          {/* キャッチコピー（赤いハンコ風ラベル、少し傾ける） */}
+          <div style={{
+            display: 'inline-block',
+            transform: 'rotate(-2deg)',
+            margin: '4px 0',
+          }}>
+            <div className="stamp-seal" style={{
+              fontSize: '1em',
+              padding: '4px 14px',
+              borderWidth: '2px',
+              backgroundColor: 'rgba(179, 53, 43, 0.08)',
+            }}>
+              賭けろ。戦え。生き残れ。
+            </div>
+          </div>
+        </div>
 
         {(() => {
           const inputNameInfo = getNameCharLimitInfo(inputName);
           return (
-            <>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.9em', color: '#cbd5e1', fontWeight: 'bold' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* セクション 1: プレイヤー名入力 */}
+              <div style={{
+                borderTop: '1px solid #4A4234',
+                paddingTop: '18px',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: '8px',
+                }}>
+                  <label style={{
+                    fontSize: '0.9em',
+                    color: '#E9DFC8',
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                  }}>
                     あなたのプレイヤー名:
                   </label>
-                  <span style={{ fontSize: '0.8em', color: inputNameInfo.isOver ? '#ef4444' : '#94a3b8' }}>
+                  <span style={{
+                    fontSize: '0.78em',
+                    color: inputNameInfo.isOver ? '#B3352B' : '#A79B7E',
+                    fontFamily: '"IBM Plex Mono", monospace',
+                  }}>
                     {inputName.length > 0 ? (
                       <>
                         {inputNameInfo.count} / {inputNameInfo.max}字
-                        {inputNameInfo.isOver && <b style={{ marginLeft: '4px' }}>(文字数オーバー)</b>}
+                        {inputNameInfo.isOver && <b style={{ marginLeft: '6px' }}>[超過]</b>}
                       </>
                     ) : (
                       '半角24字 / 全角・混合12字以内'
                     )}
                   </span>
                 </div>
+
                 <input
                   type="text"
                   value={inputName}
@@ -141,23 +240,39 @@ export const LobbyView: React.FC<Props> = ({
                   placeholder="名前を入力 (半角24字/全角12字以内)"
                   style={{
                     width: '100%',
-                    padding: '10px',
-                    boxSizing: 'border-box',
-                    borderRadius: '6px',
-                    border: inputNameInfo.isOver ? '1px solid #ef4444' : '1px solid #475569',
-                    backgroundColor: '#0f172a',
-                    color: '#fff',
+                    padding: '12px 14px',
+                    border: inputNameInfo.isOver ? '1px solid #B3352B' : '1px solid #4A4234',
+                    backgroundColor: '#12100D',
+                    color: '#E9DFC8',
                     fontSize: '1em',
                   }}
                 />
                 {inputNameInfo.isOver && (
-                  <div style={{ color: '#ef4444', fontSize: '0.8em', marginTop: '4px' }}>
-                    ⚠️ {inputNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
+                  <div style={{
+                    color: '#B3352B',
+                    fontSize: '0.8em',
+                    marginTop: '6px',
+                    fontWeight: 700,
+                  }}>
+                    ※ {inputNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* セクション 2: 部屋を作成（最重要ボタン） */}
+              <div style={{
+                borderTop: '1px solid #4A4234',
+                paddingTop: '18px',
+              }}>
+                <div style={{
+                  fontSize: '0.75em',
+                  color: '#A79B7E',
+                  letterSpacing: '0.1em',
+                  marginBottom: '8px',
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}>
+                  OPTION A: HOST A NEW TABLE
+                </div>
                 <button
                   onClick={() => {
                     const validation = validatePlayerName(inputName);
@@ -166,19 +281,43 @@ export const LobbyView: React.FC<Props> = ({
                     }
                     onCreateRoom(inputName.trim());
                   }}
-                  style={{ padding: '12px', borderRadius: '6px', backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '1em' }}
+                  className="btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    fontSize: '1.05em',
+                    letterSpacing: '0.05em',
+                  }}
                 >
-                  🏠 新しい部屋を作成（ホストになる）
+                  新しい部屋を作成（ホストになる）
                 </button>
+              </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.85em' }}>
-                  <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
-                  <span>または友達の部屋に参加</span>
-                  <div style={{ flex: 1, height: '1px', backgroundColor: '#334155' }} />
+              {/* セクション 3: 友達の部屋に参加 */}
+              <div style={{
+                borderTop: '1px solid #4A4234',
+                paddingTop: '18px',
+              }}>
+                <div style={{
+                  fontSize: '0.75em',
+                  color: '#A79B7E',
+                  letterSpacing: '0.1em',
+                  marginBottom: '8px',
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}>
+                  OPTION B: JOIN EXISTING TABLE
                 </div>
-
-                <div style={{ backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
-                  <label style={{ display: 'block', fontSize: '0.85em', color: '#94a3b8', marginBottom: '6px' }}>
+                <div style={{
+                  backgroundColor: '#12100D',
+                  padding: '16px',
+                  border: '1px solid #4A4234',
+                }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.85em',
+                    color: '#A79B7E',
+                    marginBottom: '8px',
+                  }}>
                     招待されたルームID（6桁の数字 または 招待URL）:
                   </label>
                   <input
@@ -186,7 +325,15 @@ export const LobbyView: React.FC<Props> = ({
                     placeholder="例: 582190 または 招待URLを貼り付け"
                     value={inputRoomCode}
                     onChange={(e) => setInputRoomCode(e.target.value)}
-                    style={{ width: '100%', padding: '10px', boxSizing: 'border-box', borderRadius: '6px', border: '1px solid #475569', backgroundColor: '#1e293b', color: '#fff', marginBottom: '10px', fontSize: '1em' }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      backgroundColor: '#1C1915',
+                      color: '#E9DFC8',
+                      marginBottom: '12px',
+                      fontSize: '1em',
+                      fontFamily: '"IBM Plex Mono", monospace',
+                    }}
                   />
                   <button
                     onClick={() => {
@@ -198,137 +345,365 @@ export const LobbyView: React.FC<Props> = ({
                       if (!normalized) return alert('ルームIDまたは招待URLを入力してください');
                       onJoinRoom(normalized, inputName.trim());
                     }}
-                    style={{ width: '100%', padding: '10px', borderRadius: '6px', backgroundColor: '#059669', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer', fontSize: '0.95em' }}
+                    className="btn-normal"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      fontSize: '0.98em',
+                      fontWeight: 700,
+                      borderColor: '#B9975B',
+                      color: '#B9975B',
+                    }}
                   >
-                    🚪 部屋に参加する
+                    部屋に参加する
                   </button>
                 </div>
               </div>
-            </>
+
+              {/* セクション 4: オンライン対戦の手順（01 / 02 / 03 等幅フォント特大） */}
+              <div style={{
+                borderTop: '1px solid #4A4234',
+                paddingTop: '18px',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px',
+                }}>
+                  <span className="stamp-seal" style={{ fontSize: '0.72em', padding: '1px 6px' }}>
+                    手順
+                  </span>
+                  <span style={{ fontSize: '0.88em', fontWeight: 700, color: '#E9DFC8' }}>
+                    オンライン対戦の手順:
+                  </span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  backgroundColor: '#12100D',
+                  padding: '14px',
+                  border: '1px solid #4A4234',
+                  fontSize: '0.85em',
+                  color: '#A79B7E',
+                  lineHeight: '1.6',
+                }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      fontSize: '1.25em',
+                      fontWeight: 700,
+                      color: '#B9975B',
+                      lineHeight: 1,
+                      minWidth: '24px',
+                    }}>
+                      01
+                    </span>
+                    <div>1人目のプレイヤーが「新しい部屋を作成」を押します（ホストになります）</div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      fontSize: '1.25em',
+                      fontWeight: 700,
+                      color: '#B9975B',
+                      lineHeight: 1,
+                      minWidth: '24px',
+                    }}>
+                      02
+                    </span>
+                    <div>待機室に表示される「招待リンクをコピー」または「6桁ID」を友達にLINEやDiscordで送ります</div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{
+                      fontFamily: '"IBM Plex Mono", monospace',
+                      fontSize: '1.25em',
+                      fontWeight: 700,
+                      color: '#B9975B',
+                      lineHeight: 1,
+                      minWidth: '24px',
+                    }}>
+                      03
+                    </span>
+                    <div>友達がそのURLを開くか、IDを入力して「部屋に参加する」を押せばマッチング完了です！</div>
+                  </div>
+
+                  <div style={{
+                    marginTop: '4px',
+                    paddingTop: '8px',
+                    borderTop: '1px solid #26221C',
+                    fontSize: '0.8em',
+                    color: '#6B7F4E',
+                  }}>
+                    ※ ホストがURL共有のために別アプリを開いても部屋は維持されます。
+                  </div>
+                </div>
+              </div>
+            </div>
           );
         })()}
-
-        {/* 初心者向け手順ガイド */}
-        <div style={{ marginTop: '20px', padding: '12px 14px', backgroundColor: '#0f172a', borderRadius: '6px', border: '1px solid #1e3a8a', fontSize: '0.82em', color: '#94a3b8', lineHeight: '1.6' }}>
-          <b style={{ color: '#60a5fa', display: 'block', marginBottom: '4px' }}>💡 オンライン対戦の手順:</b>
-          1. 1人目のプレイヤーが「新しい部屋を作成」を押します（ホストになります）<br />
-          2. 待機室に表示される「招待リンクをコピー」または「6桁ID」を友達にLINEやDiscordで送ります<br />
-          3. 友達がそのURLを開くか、IDを入力して「部屋に参加する」を押せばマッチング完了です！<br />
-          <span style={{ color: '#4ade80', fontSize: '0.95em', display: 'inline-block', marginTop: '4px' }}>
-            ✓ ホストがURL共有のために別アプリを開いても部屋は維持されます。
-          </span>
-        </div>
       </div>
     );
   }
 
-  // 2. ロビー待機中
+  // 2. ロビー待機中（競り札風デザイン）
   if (phase === 'LOBBY') {
+    const playerCount = Object.keys(players).length;
+    const canStart = playerCount >= 2;
+
     return (
-      <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '8px', border: '1px solid #334155' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '14px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{
+        maxWidth: '820px',
+        margin: '20px auto',
+        backgroundColor: '#1C1915',
+        border: '3px double #4A4234',
+        padding: '24px',
+        boxShadow: '4px 4px 0 #000',
+      }}>
+        {/* 上部ヘッダー部 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '16px',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}>
           <div>
-            <h2 style={{ margin: 0 }}>ルーム待機室</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.95em', color: '#94a3b8' }}>
-                ルームID: <b style={{ color: '#38bdf8', fontSize: '1.25em', letterSpacing: '1px' }}>{roomCode}</b>
-              </span>
-              <button
-                onClick={() => handleCopy(roomCode, 'ルームID')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  backgroundColor: '#334155',
-                  color: '#f8fafc',
-                  border: '1px solid #475569',
-                  fontSize: '0.8em',
-                  cursor: 'pointer',
-                }}
-              >
-                📋 IDをコピー
-              </button>
-              <button
-                onClick={() => handleCopy(getInviteUrl(), '招待URL')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '4px',
-                  backgroundColor: '#0284c7',
-                  color: '#fff',
-                  border: 'none',
-                  fontSize: '0.8em',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                }}
-              >
-                🔗 招待リンクをコピー
-              </button>
+            <div style={{
+              fontSize: '0.75em',
+              color: '#A79B7E',
+              letterSpacing: '0.15em',
+              fontFamily: '"IBM Plex Mono", monospace',
+              marginBottom: '2px',
+            }}>
+              WAITING ROOM // AUCTION TABLE
             </div>
-            <div style={{ marginTop: '4px', fontSize: '0.78em', color: '#94a3b8' }}>
-              💡 別アプリを開いて招待リンクを送っても接続は維持されます
-            </div>
-            {copyNotice && (
-              <div style={{ marginTop: '4px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>
-                ✓ {copyNotice}
-              </div>
-            )}
+            <h2 style={{
+              margin: 0,
+              fontFamily: '"Shippori Mincho B1", serif',
+              fontWeight: 700,
+              fontSize: '1.6em',
+              color: '#E9DFC8',
+            }}>
+              ルーム待機室
+            </h2>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {onBackToTitle && (
               <button
                 onClick={onBackToTitle}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  backgroundColor: '#475569',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '0.85em',
-                }}
+                className="btn-sub"
+                style={{ fontSize: '0.85em' }}
               >
-                ← タイトル画面に戻る
+                タイトル画面に戻る
+              </button>
+            )}
+            {isHost && onAddTestPlayer && (
+              <button
+                onClick={onAddTestPlayer}
+                className="btn-normal"
+                style={{ padding: '8px 12px', fontSize: '0.85em' }}
+              >
+                テスト用プレイヤー追加
               </button>
             )}
             {isHost && (
-              <>
-                {onAddTestPlayer && (
-                  <button
-                    onClick={onAddTestPlayer}
-                    style={{ padding: '8px 12px', borderRadius: '6px', backgroundColor: '#334155', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '0.85em' }}
-                  >
-                    ＋ テスト用プレイヤー追加
-                  </button>
-                )}
-                <button
-                  onClick={onStartGame}
-                  disabled={Object.keys(players).length < 2}
-                  title={Object.keys(players).length < 2 ? '2人以上揃ったらゲームを開始できます' : undefined}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    backgroundColor: Object.keys(players).length < 2 ? '#1e3a5f' : '#2563eb',
-                    color: Object.keys(players).length < 2 ? '#64748b' : '#fff',
-                    fontWeight: 'bold',
-                    border: 'none',
-                    cursor: Object.keys(players).length < 2 ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {Object.keys(players).length < 2 ? '対戦相手を待っています...' : 'ゲームを開始する 🚀'}
-                </button>
-              </>
+              <button
+                onClick={onStartGame}
+                disabled={!canStart}
+                className="btn-primary"
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '0.95em',
+                }}
+              >
+                {canStart ? 'ゲームを開始する' : '対戦相手を待っています...'}
+              </button>
             )}
           </div>
         </div>
 
-        <div>
-          <h3>参加者一覧 ({Object.keys(players).length}人)</h3>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {Object.values(players).map(p => (
-              <div key={p.id} style={{ padding: '8px 16px', backgroundColor: '#0f172a', borderRadius: '6px', border: p.id === myId ? '1px solid #3b82f6' : '1px solid #334155' }}>
-                {p.name} {p.isHost && '👑'} {p.id === myId && '(自分)'}
+        {/* ルームID（競り札ボックス風）と招待URL */}
+        <div style={{
+          backgroundColor: '#12100D',
+          border: '2px solid #4A4234',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px',
+        }}>
+          <div>
+            <div style={{
+              fontSize: '0.75em',
+              color: '#A79B7E',
+              letterSpacing: '0.1em',
+              fontFamily: '"IBM Plex Mono", monospace',
+            }}>
+              BIDDER TABLE CODE
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginTop: '2px' }}>
+              <span style={{ fontSize: '0.9em', color: '#A79B7E' }}>ルームID:</span>
+              <span style={{
+                fontFamily: '"IBM Plex Mono", monospace',
+                fontSize: '2.2em',
+                fontWeight: 700,
+                color: '#B9975B',
+                letterSpacing: '3px',
+                lineHeight: 1,
+              }}>
+                {roomCode}
+              </span>
+            </div>
+            <div style={{ marginTop: '6px', fontSize: '0.78em', color: '#A79B7E' }}>
+              ※ 別アプリを開いて招待リンクを送っても接続は維持されます
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => handleCopy(roomCode, 'ルームID')}
+                className="btn-normal"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.82em',
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}
+              >
+                IDをコピー
+              </button>
+              <button
+                onClick={() => handleCopy(getInviteUrl(), '招待URL')}
+                className="btn-normal"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.82em',
+                  borderColor: '#B9975B',
+                  color: '#B9975B',
+                  fontWeight: 700,
+                }}
+              >
+                招待リンクをコピー
+              </button>
+            </div>
+            {copyNotice && (
+              <div style={{
+                color: '#6B7F4E',
+                fontSize: '0.82em',
+                fontWeight: 700,
+                textAlign: 'right',
+              }}>
+                {copyNotice}
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* 開始可能人数の警告（2〜4人で開始できます）：赤文字＋罫線ボックス */}
+        {!canStart && (
+          <div style={{
+            border: '1px solid #B3352B',
+            backgroundColor: 'rgba(179, 53, 43, 0.08)',
+            padding: '10px 14px',
+            marginBottom: '20px',
+            color: '#B3352B',
+            fontSize: '0.88em',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            <span className="stamp-seal-solid" style={{ fontSize: '0.7em', padding: '1px 5px' }}>
+              注意
+            </span>
+            <span>2〜4人で開始できます。対戦相手の入室をお待ちください。</span>
+          </div>
+        )}
+
+        {/* 参加者一覧（ピル型チップを廃止、四角い「名札」リスト） */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            borderBottom: '1px solid #4A4234',
+            paddingBottom: '6px',
+            marginBottom: '12px',
+          }}>
+            <h3 style={{
+              margin: 0,
+              fontSize: '1em',
+              fontWeight: 700,
+              color: '#E9DFC8',
+              letterSpacing: '0.05em',
+            }}>
+              参加者一覧
+            </h3>
+            <span style={{
+              fontSize: '0.85em',
+              color: '#A79B7E',
+              fontFamily: '"IBM Plex Mono", monospace',
+            }}>
+              ({playerCount} / 4 人)
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+            {Object.values(players).map(p => {
+              const isMe = p.id === myId;
+              const isBot = p.id.startsWith('bot_');
+
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: '#12100D',
+                    border: '1px solid #4A4234',
+                    borderLeft: isMe ? '4px solid #B3352B' : '1px solid #4A4234',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    boxShadow: '2px 2px 0 #000',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{
+                      fontWeight: 700,
+                      fontSize: '0.95em',
+                      color: isBot ? '#A79B7E' : '#E9DFC8',
+                    }}>
+                      {p.name}
+                    </span>
+                    {p.isHost && (
+                      <span style={{
+                        fontSize: '0.65em',
+                        border: '1px solid #B9975B',
+                        color: '#B9975B',
+                        padding: '1px 4px',
+                        fontFamily: '"IBM Plex Mono", monospace',
+                      }}>
+                        HOST
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.75em', color: isMe ? '#B3352B' : '#A79B7E' }}>
+                    {isMe ? '[あなた]' : isBot ? '[CPU]' : '[参加者]'}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -346,16 +721,29 @@ export const LobbyView: React.FC<Props> = ({
           };
 
           return (
-            <div style={{ marginTop: '20px', backgroundColor: '#0f172a', padding: '16px', borderRadius: '6px', border: '1px solid #334155' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <label style={{ fontSize: '0.9em', color: '#cbd5e1', fontWeight: 'bold' }}>
-                  ✏️ プレイヤー名を変更:
+            <div style={{
+              backgroundColor: '#12100D',
+              padding: '16px',
+              border: '1px solid #4A4234',
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginBottom: '8px',
+              }}>
+                <label style={{ fontSize: '0.88em', color: '#E9DFC8', fontWeight: 700 }}>
+                  プレイヤー名を変更:
                 </label>
-                <span style={{ fontSize: '0.8em', color: lobbyNameInfo.isOver ? '#ef4444' : '#94a3b8' }}>
+                <span style={{
+                  fontSize: '0.78em',
+                  color: lobbyNameInfo.isOver ? '#B3352B' : '#A79B7E',
+                  fontFamily: '"IBM Plex Mono", monospace',
+                }}>
                   {lobbyName.length > 0 ? (
                     <>
                       {lobbyNameInfo.count} / {lobbyNameInfo.max}字
-                      {lobbyNameInfo.isOver && <b style={{ marginLeft: '4px' }}>(文字数オーバー)</b>}
+                      {lobbyNameInfo.isOver && <b style={{ marginLeft: '4px' }}>[超過]</b>}
                     </>
                   ) : (
                     '半角24字 / 全角・混合12字以内'
@@ -376,24 +764,19 @@ export const LobbyView: React.FC<Props> = ({
                   style={{
                     flex: 1,
                     padding: '8px 12px',
-                    borderRadius: '6px',
-                    border: lobbyNameInfo.isOver ? '1px solid #ef4444' : '1px solid #475569',
-                    backgroundColor: '#1e293b',
-                    color: '#fff',
+                    border: lobbyNameInfo.isOver ? '1px solid #B3352B' : '1px solid #4A4234',
+                    backgroundColor: '#1C1915',
+                    color: '#E9DFC8',
                     fontSize: '0.95em',
                   }}
                 />
                 <button
                   onClick={handleApplyRename}
+                  className="btn-normal"
                   style={{
                     padding: '8px 16px',
-                    borderRadius: '6px',
-                    backgroundColor: lobbyNameInfo.isOver ? '#4c1d95' : '#7c3aed',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.9em',
+                    fontSize: '0.88em',
+                    fontWeight: 700,
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -401,13 +784,13 @@ export const LobbyView: React.FC<Props> = ({
                 </button>
               </div>
               {lobbyNameInfo.isOver && (
-                <div style={{ color: '#ef4444', fontSize: '0.8em', marginTop: '4px' }}>
-                  ⚠️ {lobbyNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
+                <div style={{ color: '#B3352B', fontSize: '0.8em', marginTop: '6px' }}>
+                  ※ {lobbyNameInfo.hasFull ? '全角または混合の名前は12文字以内' : '半角の名前は24文字以内'}で入力してください。
                 </div>
               )}
               {renameNotice && (
-                <div style={{ marginTop: '6px', color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>
-                  ✓ {renameNotice}
+                <div style={{ marginTop: '6px', color: '#6B7F4E', fontSize: '0.82em', fontWeight: 700 }}>
+                  {renameNotice}
                 </div>
               )}
             </div>
@@ -415,7 +798,13 @@ export const LobbyView: React.FC<Props> = ({
         })()}
 
         {!isHost && (
-          <div style={{ marginTop: '16px', color: '#94a3b8', textAlign: 'center' }}>
+          <div style={{
+            marginTop: '20px',
+            color: '#A79B7E',
+            textAlign: 'center',
+            fontSize: '0.9em',
+            fontStyle: 'italic',
+          }}>
             ホストがゲームを開始するのをお待ちください...
           </div>
         )}
@@ -426,11 +815,43 @@ export const LobbyView: React.FC<Props> = ({
   // 3. ロール選択画面
   if (phase === 'ROLE_SELECT') {
     return (
-      <div style={{ backgroundColor: '#1e293b', padding: '20px', borderRadius: '8px', border: '1px solid #334155' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{
+        maxWidth: '960px',
+        margin: '20px auto',
+        backgroundColor: '#1C1915',
+        border: '3px double #4A4234',
+        padding: '24px',
+        boxShadow: '4px 4px 0 #000',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '14px',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}>
           <div>
-            <h2 style={{ margin: 0 }}>🎭 ロール選択</h2>
-            <div style={{ fontSize: '0.9em', color: '#94a3b8' }}>
+            <div style={{
+              fontSize: '0.75em',
+              color: '#A79B7E',
+              letterSpacing: '0.15em',
+              fontFamily: '"IBM Plex Mono", monospace',
+            }}>
+              ROLE SELECTION // CHOOSE YOUR CLASS
+            </div>
+            <h2 style={{
+              margin: '2px 0 0 0',
+              fontFamily: '"Shippori Mincho B1", serif',
+              fontWeight: 700,
+              color: '#E9DFC8',
+              fontSize: '1.6em',
+            }}>
+              ロール選択
+            </h2>
+            <div style={{ fontSize: '0.85em', color: '#A79B7E', marginTop: '4px' }}>
               好きなロールを選択してください（ロールの重複は可能です）。全員が選択するとゲームが始まります。
             </div>
           </div>
@@ -438,32 +859,21 @@ export const LobbyView: React.FC<Props> = ({
             {onBackToTitle && (
               <button
                 onClick={onBackToTitle}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  backgroundColor: '#475569',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '0.85em',
-                  fontWeight: 'bold',
-                }}
+                className="btn-sub"
+                style={{ fontSize: '0.85em' }}
               >
-                ← タイトル画面に戻る
+                タイトル画面に戻る
               </button>
             )}
             {isHost && onForceEndGame && (
               <button
                 onClick={onForceEndGame}
+                className="btn-normal"
                 style={{
-                  backgroundColor: '#dc2626',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '6px 14px',
+                  color: '#B3352B',
+                  borderColor: '#B3352B',
+                  padding: '6px 12px',
                   fontSize: '0.85em',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
                 }}
               >
                 試合を強制終了
@@ -472,7 +882,7 @@ export const LobbyView: React.FC<Props> = ({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
           {Object.values(ROLE_DEFINITIONS).map(role => {
             const isSelected = selectedRoleId === role.id;
             const uniqueA = CARD_DEFINITIONS[role.uniqueCardAId];
@@ -483,30 +893,85 @@ export const LobbyView: React.FC<Props> = ({
                 key={role.id}
                 onClick={() => onSelectRole(role.id)}
                 style={{
-                  backgroundColor: isSelected ? '#1e3a8a' : '#0f172a',
-                  border: isSelected ? '2px solid #3b82f6' : '1px solid #334155',
-                  borderRadius: '8px',
-                  padding: '12px',
+                  backgroundColor: isSelected ? '#26221C' : '#12100D',
+                  border: isSelected ? '2px solid #B9975B' : '1px solid #4A4234',
+                  padding: '14px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'border-color 0.15s, background-color 0.15s',
+                  boxShadow: isSelected ? '3px 3px 0 #000' : '2px 2px 0 #000',
+                  position: 'relative',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <b style={{ fontSize: '1.1em', color: isSelected ? '#60a5fa' : '#fff' }}>{role.name}</b>
-                  {isSelected && <span style={{ color: '#4ade80', fontSize: '0.85em', fontWeight: 'bold' }}>✓ 選択中</span>}
+                {/* 選択中スタンプ */}
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                  }}>
+                    <span className="stamp-seal" style={{
+                      fontSize: '0.75em',
+                      borderColor: '#B9975B',
+                      color: '#B9975B',
+                    }}>
+                      選択中
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '8px' }}>
+                  <b style={{
+                    fontSize: '1.15em',
+                    fontFamily: '"Shippori Mincho B1", serif',
+                    color: isSelected ? '#B9975B' : '#E9DFC8',
+                  }}>
+                    {role.name}
+                  </b>
                 </div>
 
-                <div style={{ fontSize: '0.8em', backgroundColor: '#1e293b', padding: '4px 6px', borderRadius: '4px', marginBottom: '8px' }}>
-                  HP:{role.initialStats.hp} ATK:{role.initialStats.atk} DEF:{role.initialStats.def} MAT:{role.initialStats.mat} MDF:{role.initialStats.mdf} SPD:{role.initialStats.spd}
+                {/* ステータス表 */}
+                <div style={{
+                  fontSize: '0.8em',
+                  backgroundColor: '#1C1915',
+                  padding: '6px 8px',
+                  border: '1px solid #4A4234',
+                  marginBottom: '10px',
+                  fontFamily: '"IBM Plex Mono", monospace',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '4px',
+                }}>
+                  <span>HP:{role.initialStats.hp}</span>
+                  <span>ATK:{role.initialStats.atk}</span>
+                  <span>DEF:{role.initialStats.def}</span>
+                  <span>MAT:{role.initialStats.mat}</span>
+                  <span>MDF:{role.initialStats.mdf}</span>
+                  <span>SPD:{role.initialStats.spd}</span>
                 </div>
 
-                <div style={{ fontSize: '0.8em', color: '#fbbf24', marginBottom: '6px' }}>
+                <div style={{
+                  fontSize: '0.82em',
+                  color: '#B9975B',
+                  marginBottom: '8px',
+                  lineHeight: '1.4',
+                }}>
                   <b>特性【{role.passiveName}】</b>: {role.passiveDescription}
                 </div>
 
-                <div style={{ fontSize: '0.75em', color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: '6px' }}>
-                  <div><b>{uniqueA?.name}</b>: {formatCardDescription(uniqueA?.description, { ...role.initialStats, maxHp: role.initialStats.hp })}</div>
-                  <div style={{ marginTop: '3px' }}><b>{uniqueB?.name}</b>: {formatCardDescription(uniqueB?.description, { ...role.initialStats, maxHp: role.initialStats.hp })}</div>
+                <div style={{
+                  fontSize: '0.78em',
+                  color: '#A79B7E',
+                  borderTop: '1px solid #4A4234',
+                  paddingTop: '8px',
+                  lineHeight: '1.4',
+                }}>
+                  <div style={{ marginBottom: '4px' }}>
+                    <b style={{ color: '#E9DFC8' }}>{uniqueA?.name}</b>: {formatCardDescription(uniqueA?.description, { ...role.initialStats, maxHp: role.initialStats.hp })}
+                  </div>
+                  <div>
+                    <b style={{ color: '#E9DFC8' }}>{uniqueB?.name}</b>: {formatCardDescription(uniqueB?.description, { ...role.initialStats, maxHp: role.initialStats.hp })}
+                  </div>
                 </div>
               </div>
             );

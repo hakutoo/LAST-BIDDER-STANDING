@@ -17,17 +17,20 @@ export const GoldDistributionView: React.FC<Props> = ({
     return (
       <div
         style={{
-          backgroundColor: '#090d16',
-          border: '2px solid #eab308',
-          borderRadius: '12px',
+          backgroundColor: '#1C1915',
+          border: '2px solid #4A4234',
           padding: '24px',
           textAlign: 'center',
           marginBottom: '16px',
-          boxShadow: '0 0 25px rgba(234, 179, 8, 0.25)',
+          boxShadow: '3px 3px 0 #000',
         }}
       >
-        <div style={{ fontSize: '1.2em', color: '#facc15', fontStyle: 'italic' }}>
-          💰 給与計算中...
+        <div style={{
+          fontSize: '1.1em',
+          color: '#B9975B',
+          fontFamily: '"Shippori Mincho B1", serif',
+        }}>
+          給与計算中...
         </div>
       </div>
     );
@@ -38,31 +41,15 @@ export const GoldDistributionView: React.FC<Props> = ({
   return (
     <div
       style={{
-        backgroundColor: '#090d16',
-        backgroundImage: 'linear-gradient(135deg, #090d16 0%, #1c1917 50%, #292524 100%)',
-        border: '2px solid #eab308',
-        borderRadius: '12px',
+        backgroundColor: '#1C1915',
+        border: '2px solid #B9975B',
         padding: '20px',
         marginBottom: '16px',
-        boxShadow: '0 0 25px rgba(234, 179, 8, 0.35)',
+        boxShadow: '4px 4px 0 #000',
         position: 'relative',
-        overflow: 'hidden',
-        animation: 'actionFadeIn 0.3s ease-out',
+        animation: 'actionFadeIn 0.25s ease-out',
       }}
     >
-      {/* 背景のゴールドグロー */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: 'radial-gradient(circle, rgba(234, 179, 8, 0.15) 0%, transparent 60%)',
-          pointerEvents: 'none',
-        }}
-      />
-
       {/* ヘッダー */}
       <div
         style={{
@@ -70,46 +57,37 @@ export const GoldDistributionView: React.FC<Props> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '14px',
-          position: 'relative',
-          zIndex: 1,
+          borderBottom: '1px solid #4A4234',
+          paddingBottom: '10px',
         }}
       >
         <div
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px',
-            backgroundColor: '#eab308',
-            color: '#000',
-            padding: '4px 14px',
-            borderRadius: '20px',
+            backgroundColor: '#B9975B',
+            color: '#12100D',
+            padding: '3px 12px',
             fontSize: '0.85em',
-            fontWeight: 'bold',
-            boxShadow: '0 2px 8px rgba(234, 179, 8, 0.5)',
-            letterSpacing: '0.5px',
+            fontWeight: 700,
+            letterSpacing: '0.05em',
+            fontFamily: '"IBM Plex Mono", monospace',
           }}
         >
-          <span>💰</span>
-          <span>給与・ボーナス獲得！</span>
+          [給与・賞与支給]
         </div>
 
         {isHost && onSkip && (
           <button
             onClick={onSkip}
+            className="btn-normal"
             style={{
-              backgroundColor: '#334155',
-              color: '#cbd5e1',
-              border: '1px solid #475569',
-              borderRadius: '6px',
-              padding: '4px 10px',
+              padding: '3px 10px',
               fontSize: '0.8em',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
             }}
             title="残りの演出をスキップしてドラフトを開始します"
           >
-            ⏭️ 演出スキップ
+            演出スキップ
           </button>
         )}
       </div>
@@ -118,12 +96,15 @@ export const GoldDistributionView: React.FC<Props> = ({
       <div
         style={{
           textAlign: 'center',
-          position: 'relative',
-          zIndex: 1,
           marginBottom: '12px',
         }}
       >
-        <span style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#f8fafc' }}>
+        <span style={{
+          fontSize: '1.2em',
+          fontWeight: 700,
+          color: '#E9DFC8',
+          fontFamily: '"Shippori Mincho B1", serif',
+        }}>
           {event.playerName}
         </span>
         {role && (
@@ -131,10 +112,11 @@ export const GoldDistributionView: React.FC<Props> = ({
             style={{
               marginLeft: '8px',
               padding: '2px 8px',
-              backgroundColor: '#334155',
-              borderRadius: '4px',
-              fontSize: '0.8em',
-              color: '#38bdf8',
+              backgroundColor: '#12100D',
+              border: '1px solid #4A4234',
+              fontSize: '0.78em',
+              color: '#B9975B',
+              fontFamily: '"IBM Plex Mono", monospace',
             }}
           >
             {role.name}
@@ -146,64 +128,64 @@ export const GoldDistributionView: React.FC<Props> = ({
       <div
         style={{
           textAlign: 'center',
-          position: 'relative',
-          zIndex: 1,
           marginBottom: '16px',
         }}
       >
         <div
           style={{
             fontSize: '2.4em',
-            fontWeight: '900',
-            color: '#facc15',
-            textShadow: '0 0 20px rgba(250, 204, 21, 0.8), 2px 2px 0px #000',
+            fontWeight: 700,
+            color: '#B9975B',
             letterSpacing: '1px',
-            animation: 'popBounce 0.4s ease-out',
+            fontFamily: '"IBM Plex Mono", monospace',
           }}
         >
-          +{event.total} G 獲得！
+          +{event.total} G 支給！
         </div>
-        <div style={{ fontSize: '0.9em', color: '#cbd5e1', marginTop: '4px' }}>
-          所持ゴールド: <span style={{ color: '#94a3b8' }}>{event.prevG}G</span> ➔{' '}
-          <b style={{ color: '#facc15', fontSize: '1.1em' }}>{event.newG}G</b>
+        <div style={{
+          fontSize: '0.88em',
+          color: '#A79B7E',
+          marginTop: '4px',
+          fontFamily: '"IBM Plex Mono", monospace',
+        }}>
+          所持金: <span>{event.prevG}G</span> ➔{' '}
+          <b style={{ color: '#E9DFC8', fontSize: '1.05em' }}>{event.newG}G</b>
         </div>
       </div>
 
-      {/* 内訳グリッド */}
+      {/* 内訳グリッド（値札風） */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
           gap: '8px',
-          backgroundColor: 'rgba(15, 23, 42, 0.8)',
-          border: '1px solid #44403c',
-          borderRadius: '8px',
+          backgroundColor: '#12100D',
+          border: '1px solid #4A4234',
           padding: '12px',
-          position: 'relative',
-          zIndex: 1,
+          fontFamily: '"IBM Plex Mono", monospace',
         }}
       >
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75em', color: '#a8a29e' }}>基本給</div>
-          <div style={{ fontSize: '1.05em', fontWeight: 'bold', color: '#f59e0b' }}>
+        <div style={{ textAlign: 'center', borderRight: '1px solid #26221C', padding: '4px' }}>
+          <div style={{ fontSize: '0.75em', color: '#A79B7E' }}>基本給</div>
+          <div style={{ fontSize: '1.05em', fontWeight: 700, color: '#B9975B' }}>
             +{event.base}G
           </div>
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75em', color: '#a8a29e' }}>与ダメージボーナス</div>
-          <div style={{ fontSize: '1.05em', fontWeight: 'bold', color: '#f87171' }}>
+        <div style={{ textAlign: 'center', borderRight: '1px solid #26221C', padding: '4px' }}>
+          <div style={{ fontSize: '0.75em', color: '#A79B7E' }}>戦功賞与(与ダメ)</div>
+          <div style={{ fontSize: '1.05em', fontWeight: 700, color: '#B3352B' }}>
             +{event.damageBonus}G
           </div>
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75em', color: '#a8a29e' }}>利子 (所持Gの10%)</div>
-          <div style={{ fontSize: '1.05em', fontWeight: 'bold', color: '#38bdf8' }}>
+        <div style={{ textAlign: 'center', borderRight: '1px solid #26221C', padding: '4px' }}>
+          <div style={{ fontSize: '0.75em', color: '#A79B7E' }}>利息(所持G 10%)</div>
+          <div style={{ fontSize: '1.05em', fontWeight: 700, color: '#E9DFC8' }}>
             +{event.interest}G
           </div>
         </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '0.75em', color: '#a8a29e' }}>救済 (減少HPの10%)</div>
-          <div style={{ fontSize: '1.05em', fontWeight: 'bold', color: '#4ade80' }}>
+        <div style={{ textAlign: 'center', padding: '4px' }}>
+          <div style={{ fontSize: '0.75em', color: '#A79B7E' }}>救済(損害 10%)</div>
+          <div style={{ fontSize: '1.05em', fontWeight: 700, color: '#6B7F4E' }}>
             +{event.catchup}G
           </div>
         </div>
